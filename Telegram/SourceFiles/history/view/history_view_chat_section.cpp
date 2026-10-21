@@ -131,6 +131,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_window.h"
 #include "styles/style_boxes.h"
 #include "styles/style_layers.h"
+#include "menu/menu_item_download_files.h"
 
 #include <limits>
 #include <QtCore/QMimeData>
@@ -500,6 +501,10 @@ ChatWidget::ChatWidget(
 	_topBar->forwardSelectionRequest(
 	) | rpl::on_next([=] {
 		confirmForwardSelected();
+	}, _topBar->lifetime());
+	_topBar->downloadSelectionRequest(
+	) | rpl::on_next([=] {
+		downloadSelected();
 	}, _topBar->lifetime());
 	_topBar->clearSelectionRequest(
 	) | rpl::on_next([=] {
@@ -5151,6 +5156,11 @@ void ChatWidget::listSelectionChanged(SelectedItems &&items) {
 		if (item.canForward) {
 			++state.canForwardCount;
 		}
+		if (const auto message = session().data().message(item.msgId)) {
+			if (Menu::CanBulkDownload(message)) {
+				++state.canDownloadCount;
+			}
+		}
 	}
 	_topBar->showSelected(state);
 	if (_chooseForReport && _chooseForReport->active) {
@@ -6032,6 +6042,19 @@ void ChatWidget::confirmDeleteSelected() {
 
 void ChatWidget::confirmForwardSelected() {
 	ConfirmForwardSelectedItems(_inner);
+}
+
+void ChatWidget::downloadSelected() {
+	const auto ids = _inner->getSelectedIds();
+	if (ids.empty()) {
+		return;
+	}
+	const auto weak = base::make_weak(this);
+	Menu::DownloadFiles(controller(), ids, [=] {
+		if (const auto strong = weak.get()) {
+			strong->clearSelected();
+		}
+	});
 }
 
 void ChatWidget::clearSelected() {

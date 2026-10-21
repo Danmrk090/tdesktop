@@ -9323,4 +9323,22 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "lng_passcode_strength_advice_variety" = "Make it longer and mix in more kinds of characters.";
 "lng_passcode_strength_advice_fine" = "This passcode is hard to guess.";
 
+"lng_selected_download" = "Download";
+"lng_context_select_all_shown" = "Select all shown";
+"lng_bulk_download_title" = "Download files";
+"lng_bulk_download_about#one" = "{count} file selected, {size} in total.";
+"lng_bulk_download_about#other" = "{count} files selected, {size} in total.";
+"lng_bulk_download_skipped#one" = "{count} selected message has no file or is protected from saving and will be skipped.";
+"lng_bulk_download_skipped#other" = "{count} selected messages have no files or are protected from saving and will be skipped.";
+"lng_bulk_download_folder" = "Folder: {path}";
+"lng_bulk_download_change" = "Change folder";
+"lng_bulk_download_subfolder" = "Put the files in a subfolder named «{chat}»";
+"lng_bulk_download_skip_existing" = "Skip files that are already in the folder";
+"lng_bulk_download_start" = "Download";
+"lng_bulk_download_nothing" = "There are no photos or files to download in the selected messages.";
+"lng_bulk_download_started#one" = "Downloading {count} file. Files appear in Downloads as they finish.";
+"lng_bulk_download_started#other" = "Downloading {count} files. Files appear in Downloads as they finish.";
+"lng_bulk_download_result" = "Bulk download: {photos} photos saved, {files} files sent to Downloads, {skipped} already in the folder, {failed} failed.";
+"lng_bulk_download_open_folder" = "Open folder";
+
 // Keys finished

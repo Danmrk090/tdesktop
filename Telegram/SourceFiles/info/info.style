@@ -48,6 +48,7 @@ InfoTopBar {
 	mediaActionsSkip: pixels;
 	mediaForward: IconButton;
 	mediaDelete: IconButton;
+	mediaDownload: IconButton;
 	storiesSave: IconButton;
 	storiesArchive: IconButton;
 	storiesPin: IconButton;
@@ -216,6 +217,10 @@ infoTopBarDelete: IconButton(infoTopBarForward) {
 	icon: icon {{ "info/info_media_delete", boxTitleCloseFg }};
 	iconOver: icon {{ "info/info_media_delete", boxTitleCloseFgOver }};
 }
+infoTopBarDownload: IconButton(infoTopBarForward) {
+	icon: icon {{ "menu/download", boxTitleCloseFg }};
+	iconOver: icon {{ "menu/download", boxTitleCloseFgOver }};
+}
 infoTopBarSaveStories: IconButton(infoTopBarForward) {
 	icon: icon {{ "info/info_stories_to_profile", boxTitleCloseFg }};
 	iconOver: icon {{ "info/info_stories_to_profile", boxTitleCloseFgOver }};
@@ -255,6 +260,7 @@ infoTopBar: InfoTopBar {
 	mediaActionsSkip: 4px;
 	mediaForward: infoTopBarForward;
 	mediaDelete: infoTopBarDelete;
+	mediaDownload: infoTopBarDownload;
 	storiesSave: infoTopBarSaveStories;
 	storiesArchive: infoTopBarArchiveStories;
 	storiesPin: infoTopBarPinStories;
@@ -340,6 +346,10 @@ infoLayerTopBarDelete: IconButton(infoLayerTopBarForward) {
 	icon: icon {{ "info/info_media_delete", boxTitleCloseFg }};
 	iconOver: icon {{ "info/info_media_delete", boxTitleCloseFgOver }};
 }
+infoLayerTopBarDownload: IconButton(infoLayerTopBarForward) {
+	icon: icon {{ "menu/download", boxTitleCloseFg }};
+	iconOver: icon {{ "menu/download", boxTitleCloseFgOver }};
+}
 infoLayerTopBarSaveStories: IconButton(infoLayerTopBarForward) {
 	icon: icon {{ "info/info_stories_to_profile", boxTitleCloseFg }};
 	iconOver: icon {{ "info/info_stories_to_profile", boxTitleCloseFgOver }};
@@ -368,6 +378,7 @@ infoLayerTopBar: InfoTopBar(infoTopBar) {
 	mediaActionsSkip: 6px;
 	mediaForward: infoLayerTopBarForward;
 	mediaDelete: infoLayerTopBarDelete;
+	mediaDownload: infoLayerTopBarDownload;
 	storiesSave: infoLayerTopBarSaveStories;
 	storiesArchive: infoLayerTopBarArchiveStories;
 	storiesPin: infoLayerTopBarPinStories;

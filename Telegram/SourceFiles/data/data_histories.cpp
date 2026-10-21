@@ -824,6 +824,12 @@ void Histories::deleteMessages(
 		not_null<History*> history,
 		const QVector<MTPint> &ids,
 		bool revoke) {
+	if (ids.size() > ServerIdsBatchLimit) {
+		for (auto i = 0; i < ids.size(); i += ServerIdsBatchLimit) {
+			deleteMessages(history, ids.mid(i, ServerIdsBatchLimit), revoke);
+		}
+		return;
+	}
 	sendRequest(history, RequestType::Delete, [=](Fn<void()> finish) {
 		const auto done = [=](const MTPmessages_AffectedMessages &result) {
 			session().api().applyAffectedMessages(history->peer, result);

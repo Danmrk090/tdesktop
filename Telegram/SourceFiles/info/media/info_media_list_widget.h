@@ -272,6 +272,14 @@ private:
 	[[nodiscard]] bool hasSelectedItems() const;
 	void clearSelected();
 	void forwardSelected();
+	void downloadSelected();
+	[[nodiscard]] bool canDownloadItem(
+		not_null<const HistoryItem*> item) const;
+	[[nodiscard]] bool canDownloadSelected() const;
+	[[nodiscard]] bool canSelectAllShown() const;
+	void selectAllShown();
+	[[nodiscard]] bool canSelectUpTo(not_null<const HistoryItem*> item) const;
+	void selectUpTo(not_null<const HistoryItem*> item);
 	void forwardItem(GlobalMsgId globalId);
 	void forwardItems(MessageIdsList &&items);
 	void deleteSelected();

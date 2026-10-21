@@ -2359,6 +2359,16 @@ void TopBar::createTabSelectionBar() {
 		forwardAction(SelectionAction::Delete);
 	}, _tabSelectionDelete->lifetime());
 
+	_tabSelectionDownload = Ui::CreateChild<Ui::IconButton>(
+		inner,
+		_st.mediaDownload);
+	_tabSelectionDownload->setAccessibleName(
+		tr::lng_context_save_documents_selected(tr::now));
+	_tabSelectionDownload->clicks(
+	) | rpl::on_next([=] {
+		forwardAction(SelectionAction::Download);
+	}, _tabSelectionDownload->lifetime());
+
 	_tabSelectionStoryInProfile = Ui::CreateChild<Ui::IconButton>(
 		inner,
 		_st.storiesSave);
@@ -2392,6 +2402,9 @@ void TopBar::updateTabSelectionState() {
 	const auto &list = _tabSelectedItems.list;
 	const auto canDelete = ranges::all_of(list, &SelectedItem::canDelete);
 	const auto canForward = ranges::all_of(list, &SelectedItem::canForward);
+	const auto canDownload = ranges::any_of(
+		list,
+		&SelectedItem::canDownload);
 	const auto canToggleStoryPin = ranges::all_of(
 		list,
 		&SelectedItem::canToggleStoryPin);
@@ -2406,6 +2419,7 @@ void TopBar::updateTabSelectionState() {
 		: Ui::StringWithNumbers());
 	_tabSelectionForward->setVisible(canForward);
 	_tabSelectionDelete->setVisible(canDelete);
+	_tabSelectionDownload->setVisible(canDownload);
 	_tabSelectionStoryInProfile->setVisible(canToggleStoryPin);
 	_tabSelectionStoryInProfile->setIconOverride(
 		(allInProfile
@@ -2449,6 +2463,10 @@ void TopBar::updateTabSelectionGeometry() {
 	if (!_tabSelectionStoryPin->isHidden()) {
 		_tabSelectionStoryPin->moveToRight(right, 0, inner->width());
 		right += _tabSelectionStoryPin->width();
+	}
+	if (!_tabSelectionDownload->isHidden()) {
+		_tabSelectionDownload->moveToRight(right, 0, inner->width());
+		right += _tabSelectionDownload->width();
 	}
 	if (!_tabSelectionForward->isHidden()) {
 		_tabSelectionForward->moveToRight(right, 0, inner->width());

@@ -66,6 +66,7 @@ struct SelectedItem {
 	bool canToggleStoryPin = false;
 	bool canUnpinStory = false;
 	bool storyInProfile = false;
+	bool canDownload = false;
 };
 
 struct SelectedItems {
@@ -83,6 +84,7 @@ enum class SelectionAction {
 	ToggleStoryPin,
 	ToggleStoryToProfile,
 	ToggleStoryToArchive,
+	Download,
 };
 
 class WrapWidget final : public Window::SectionWidget {

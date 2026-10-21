@@ -121,6 +121,7 @@ TopBarWidget::TopBarWidget(
 , _forward(this, tr::lng_selected_forward(), st::defaultActiveButton)
 , _sendNow(this, tr::lng_selected_send_now(), st::defaultActiveButton)
 , _delete(this, tr::lng_selected_delete(), st::defaultActiveButton)
+, _download(this, tr::lng_selected_download(), st::defaultActiveButton)
 , _back(this, st::historyTopBarBack)
 , _cancelChoose(this, st::topBarCloseChoose)
 , _call(this, st::topBarCall)
@@ -136,6 +137,7 @@ TopBarWidget::TopBarWidget(
 	_forward->setTextTransform(Ui::RoundButtonTextTransform::ToUpper);
 	_sendNow->setTextTransform(Ui::RoundButtonTextTransform::ToUpper);
 	_delete->setTextTransform(Ui::RoundButtonTextTransform::ToUpper);
+	_download->setTextTransform(Ui::RoundButtonTextTransform::ToUpper);
 
 	Lang::Updated(
 	) | rpl::on_next([=] {
@@ -148,6 +150,8 @@ TopBarWidget::TopBarWidget(
 	_sendNow->setWidthChangedCallback([=] { updateControlsGeometry(); });
 	_delete->setClickedCallback([=] { _deleteSelection.fire({}); });
 	_delete->setWidthChangedCallback([=] { updateControlsGeometry(); });
+	_download->setClickedCallback([=] { _downloadSelection.fire({}); });
+	_download->setWidthChangedCallback([=] { updateControlsGeometry(); });
 	_clear->setClickedCallback([=] { _clearSelection.fire({}); });
 	_call->setClickedCallback([=] { call({}); });
 	_call->setAcceptBoth(true, true);
@@ -1152,6 +1156,7 @@ void TopBarWidget::updateControlsGeometry() {
 	auto buttonsLeft = st::topBarActionSkip
 		+ (_controller->adaptive().isOneColumn() ? 0 : st::lineWidth);
 	auto buttonsWidth = (_forward->isHidden() ? 0 : _forward->contentWidth())
+		+ (_download->isHidden() ? 0 : _download->contentWidth())
 		+ (_sendNow->isHidden() ? 0 : _sendNow->contentWidth())
 		+ (_delete->isHidden() ? 0 : _delete->contentWidth())
 		+ _clear->width();
@@ -1162,6 +1167,7 @@ void TopBarWidget::updateControlsGeometry() {
 		-2 * st::defaultActiveButton.width);
 	auto buttonFullWidth = std::min(-(widthLeft / 2), 0);
 	_forward->setFullWidth(buttonFullWidth);
+	_download->setFullWidth(buttonFullWidth);
 	_sendNow->setFullWidth(buttonFullWidth);
 	_delete->setFullWidth(buttonFullWidth);
 
@@ -1170,6 +1176,11 @@ void TopBarWidget::updateControlsGeometry() {
 	_forward->moveToLeft(buttonsLeft, selectedButtonsTop);
 	if (!_forward->isHidden()) {
 		buttonsLeft += _forward->width() + st::topBarActionSkip;
+	}
+
+	_download->moveToLeft(buttonsLeft, selectedButtonsTop);
+	if (!_download->isHidden()) {
+		buttonsLeft += _download->width() + st::topBarActionSkip;
 	}
 
 	_sendNow->moveToLeft(buttonsLeft, selectedButtonsTop);
@@ -1186,6 +1197,7 @@ void TopBarWidget::updateControlsGeometry() {
 			: st::buttonRadius;
 		const auto buttons = std::array{
 			_forward.data(),
+			_download.data(),
 			_sendNow.data(),
 			_delete.data(),
 		};
@@ -1334,6 +1346,7 @@ void TopBarWidget::updateControlsVisibility() {
 	_delete->setVisible(_canDelete && visible);
 	_forward->setVisible(_canForward && visible);
 	_sendNow->setVisible(_canSendNow && visible);
+	_download->setVisible(_canDownload && visible);
 
 
 	const auto isOneColumn = _controller->adaptive().isOneColumn();
@@ -1481,18 +1494,25 @@ void TopBarWidget::updateMembersShowArea() {
 
 bool TopBarWidget::showSelectedState() const {
 	return (_selectedCount > 0)
-		&& (_canDelete || _canForward || _canSendNow);
+		&& (_canDelete || _canForward || _canSendNow || _canDownload);
 }
 
 void TopBarWidget::showSelected(SelectedState state) {
 	auto canDelete = (state.count > 0 && state.count == state.canDeleteCount);
 	auto canForward = (state.count > 0 && state.count == state.canForwardCount);
 	auto canSendNow = (state.count > 0 && state.count == state.canSendNowCount);
-	auto count = (!canDelete && !canForward && !canSendNow) ? 0 : state.count;
+	// Messages without files are skipped by the download itself.
+	auto canDownload = (state.count > 0 && state.canDownloadCount > 0);
+	auto downloadCount = canDownload ? state.canDownloadCount : 0;
+	auto count = (!canDelete && !canForward && !canSendNow && !canDownload)
+		? 0
+		: state.count;
 	if (_selectedCount == count
 		&& _canDelete == canDelete
 		&& _canForward == canForward
-		&& _canSendNow == canSendNow) {
+		&& _canSendNow == canSendNow
+		&& _canDownload == canDownload
+		&& _selectedDownloadCount == downloadCount) {
 		return;
 	}
 	if (count == 0) {
@@ -1500,25 +1520,32 @@ void TopBarWidget::showSelected(SelectedState state) {
 		canDelete = _canDelete;
 		canForward = _canForward;
 		canSendNow = _canSendNow;
+		canDownload = _canDownload;
+		downloadCount = _selectedDownloadCount;
 	}
 
 	const auto wasSelectedState = showSelectedState();
 	const auto visibilityChanged = (_canDelete != canDelete)
 		|| (_canForward != canForward)
-		|| (_canSendNow != canSendNow);
+		|| (_canSendNow != canSendNow)
+		|| (_canDownload != canDownload);
 	_selectedCount = count;
 	_canDelete = canDelete;
 	_canForward = canForward;
 	_canSendNow = canSendNow;
+	_canDownload = canDownload;
+	_selectedDownloadCount = downloadCount;
 	const auto nowSelectedState = showSelectedState();
 	if (nowSelectedState) {
 		_forward->setNumbersText(_selectedCount);
 		_sendNow->setNumbersText(_selectedCount);
 		_delete->setNumbersText(_selectedCount);
+		_download->setNumbersText(_selectedDownloadCount);
 		if (!wasSelectedState) {
 			_forward->finishNumbersAnimation();
 			_sendNow->finishNumbersAnimation();
 			_delete->finishNumbersAnimation();
+			_download->finishNumbersAnimation();
 		}
 	}
 	if (visibilityChanged

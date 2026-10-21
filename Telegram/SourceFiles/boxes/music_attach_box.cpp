@@ -297,7 +297,7 @@ private:
 	QString _nextOffset;
 	mtpRequestId _resolveRequestId = 0;
 	mtpRequestId _requestId = 0;
-	int _selectedLimit = MaxSelectedItems;
+	int _selectedLimit = ServerIdsBatchLimit;
 	int _titleHeight = 0;
 	int _visibleTop = 0;
 	int _visibleBottom = 0;
@@ -1702,9 +1702,9 @@ void MusicAttachBox(
 	}));
 	for (const auto section : { savedMusic, yourChats }) {
 		section->list()->setSelectOnClick(true);
-		section->list()->setSelectedLimit(MaxSelectedItems);
+		section->list()->setSelectedLimit(ServerIdsBatchLimit);
 	}
-	globalSearch->setSelectedLimit(MaxSelectedItems);
+	globalSearch->setSelectedLimit(ServerIdsBatchLimit);
 
 	struct ViewportAnchor {
 		enum class Kind : uchar {
@@ -1916,7 +1916,7 @@ void MusicAttachBox(
 			state->globalSelection);
 		const auto remaining = std::max(
 			0,
-			MaxSelectedItems - int(state->selection.size()));
+			ServerIdsBatchLimit - int(state->selection.size()));
 		savedMusic->list()->setSelectedLimit(
 			int(state->savedSelection.list.size()) + remaining);
 		yourChats->list()->setSelectedLimit(

@@ -1,0 +1,254 @@
+name: Telegram Bulk for Windows x64.
+
+# Builds an optimized (Release) Windows x64 Telegram.exe of this branch.
+#
+# Before the first run add two repository secrets
+# (Settings > Secrets and variables > Actions > New repository secret):
+#   TDESKTOP_API_ID   - your api_id from https://my.telegram.org
+#   TDESKTOP_API_HASH - your api_hash from https://my.telegram.org
+#
+# The first run has to compile all the libraries (Qt, FFmpeg, WebRTC...),
+# which can take longer than one GitHub job is allowed to run (6 hours).
+# The progress is saved to the cache, so if the first run stops with
+# "Libraries are not complete yet", simply run the workflow again, it will
+# continue from where it stopped. Later builds take about 1-2 hours.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - bulk-download
+    paths-ignore:
+      - '**.md'
+
+concurrency:
+  group: bulk-windows-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+
+  windows:
+    name: Windows x64 Release
+    runs-on: windows-latest
+    timeout-minutes: 355
+
+    env:
+      PREPARE_PATH: "Telegram/build/prepare/prepare.py"
+      API_ID: ${{ secrets.TDESKTOP_API_ID }}
+      API_HASH: ${{ secrets.TDESKTOP_API_HASH }}
+
+    defaults:
+      run:
+        shell: cmd
+
+    steps:
+      - name: Prepare directories.
+        run: |
+          mkdir %userprofile%\TBuild\Libraries
+          mklink /d %GITHUB_WORKSPACE%\TBuild %userprofile%\TBuild
+          echo TBUILD=%GITHUB_WORKSPACE%\TBuild>>%GITHUB_ENV%
+          echo LibrariesPath=%GITHUB_WORKSPACE%\TBuild\Libraries\win64>>%GITHUB_ENV%
+
+      - name: Get repository name.
+        shell: bash
+        run: echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
+
+      - name: Clone.
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          path: ${{ env.TBUILD }}\${{ env.REPO_NAME }}
+
+      - name: Check API credentials.
+        shell: bash
+        run: |
+          if [ -z "$API_ID" ] || [ -z "$API_HASH" ]; then
+            echo "::warning::The TDESKTOP_API_ID / TDESKTOP_API_HASH secrets are not set. Libraries will be built, but Telegram.exe will not. Add the secrets and run the workflow again."
+          elif ! [[ "$API_ID" =~ ^[0-9]+$ ]] || ! [[ "$API_HASH" =~ ^[0-9a-fA-F]{32}$ ]]; then
+            echo "::error::TDESKTOP_API_ID must be a number and TDESKTOP_API_HASH must be 32 hexadecimal characters (copy them from https://my.telegram.org)."
+            exit 1
+          else
+            echo "API credentials are set."
+          fi
+
+      - name: First set up.
+        shell: bash
+        run: |
+          DOCPATH=$TBUILD/$REPO_NAME/docs/building-win.md
+          SDK="$(grep "SDK version" $DOCPATH | sed -r 's/.*\*\*(.*)\*\* SDK version.*/\1/')"
+          echo "SDK=$SDK" >> $GITHUB_ENV
+
+          sed -i '/CMAKE_${lang}_FLAGS_DEBUG_INIT/s/${_Zi}//' "$PROGRAMFILES"/CMake/share/cmake*/Modules/Platform/Windows-MSVC.cmake
+
+          echo "$(sha256sum $TBUILD/$REPO_NAME/$PREPARE_PATH | awk '{ print $1 }')" >> CACHE_KEY.txt
+          echo "$SDK" >> CACHE_KEY.txt
+          echo "release-x64" >> CACHE_KEY.txt
+          echo "CACHE_KEY=$(sha256sum CACHE_KEY.txt | awk '{ print $1 }')" >> $GITHUB_ENV
+
+          echo "Configurate git for cherry-picks."
+          git config --global user.email "you@example.com"
+          git config --global user.name "Sample"
+
+      - uses: Eden-CI/msvc-dev-cmd@master
+        name: Native Tools Command Prompt.
+        with:
+          arch: x64
+          sdk: ${{ env.SDK }}
+          toolset: '14.44'
+
+      - name: NuGet sources.
+        run: |
+          nuget sources Disable -Name "Microsoft Visual Studio Offline Packages"
+          nuget sources Add -Source https://api.nuget.org/v3/index.json & exit 0
+
+      - name: Restore ThirdParty cache.
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ env.TBUILD }}\ThirdParty
+          key: bulk-third-party-${{ env.CACHE_KEY }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: bulk-third-party-${{ env.CACHE_KEY }}-
+
+      - name: Restore Libraries cache.
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ${{ env.LibrariesPath }}\*
+            !${{ env.LibrariesPath }}\cache_keys
+            !${{ env.LibrariesPath }}\[qQ]t[_-]*
+            ${{ env.LibrariesPath }}\cache_keys\*
+            !${{ env.LibrariesPath }}\cache_keys\[qQ]t[_-]*
+          key: bulk-libs-${{ env.CACHE_KEY }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: bulk-libs-${{ env.CACHE_KEY }}-
+
+      - name: Restore Qt cache.
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ${{ env.LibrariesPath }}\[qQ]t[_-]*
+            ${{ env.LibrariesPath }}\cache_keys\[qQ]t[_-]*
+          key: bulk-qt-${{ env.CACHE_KEY }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: bulk-qt-${{ env.CACHE_KEY }}-
+
+      - name: Fingerprint libraries before the build.
+        id: before
+        shell: pwsh
+        run: |
+          function Fingerprint($dir, $filter) {
+            if (-not (Test-Path $dir)) { return "none" }
+            $files = Get-ChildItem -Path $dir -File | Where-Object { $_.Name -match $filter } | Sort-Object Name
+            $text = ($files | ForEach-Object { $_.Name + ":" + (Get-Content -Raw $_.FullName) }) -join "|"
+            $sha = [System.Security.Cryptography.SHA1]::Create()
+            return [System.BitConverter]::ToString($sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes("x" + $text)))
+          }
+          "third=$(Fingerprint "$env:TBUILD\ThirdParty\cache_keys" '.*')" >> $env:GITHUB_OUTPUT
+          "libs=$(Fingerprint "$env:LibrariesPath\cache_keys" '^(?![qQ]t[_-])')" >> $env:GITHUB_OUTPUT
+          "qt=$(Fingerprint "$env:LibrariesPath\cache_keys" '^[qQ]t[_-]')" >> $env:GITHUB_OUTPUT
+
+      - name: Libraries.
+        id: libraries
+        timeout-minutes: 290
+        run: |
+          %TBUILD%\%REPO_NAME%\Telegram\build\prepare\win.bat silent
+
+      - name: Free up some disk space.
+        if: always() && steps.libraries.outcome != 'skipped'
+        shell: bash
+        run: find $LibrariesPath '(' '(' ! '(' -name '*.lib' -o -name '*.a' -o -name '*.exe' -o -name '*.h' -o -name '*.hpp' -o -name '*.inc' -o -name '*.cmake' -o -name '*.pc' -o -path '*/include/*' -o -path '*/objects-*' -o -path '*/cache_keys/*' -o -path '*/patches/*' -o -path '*/nv-codec-headers/*' ')' -type f ')' -o -empty ')' -delete
+
+      - name: Fingerprint libraries after the build.
+        id: after
+        if: always() && steps.libraries.outcome != 'skipped'
+        shell: pwsh
+        run: |
+          function Fingerprint($dir, $filter) {
+            if (-not (Test-Path $dir)) { return "none" }
+            $files = Get-ChildItem -Path $dir -File | Where-Object { $_.Name -match $filter } | Sort-Object Name
+            $text = ($files | ForEach-Object { $_.Name + ":" + (Get-Content -Raw $_.FullName) }) -join "|"
+            $sha = [System.Security.Cryptography.SHA1]::Create()
+            return [System.BitConverter]::ToString($sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes("x" + $text)))
+          }
+          "third=$(Fingerprint "$env:TBUILD\ThirdParty\cache_keys" '.*')" >> $env:GITHUB_OUTPUT
+          "libs=$(Fingerprint "$env:LibrariesPath\cache_keys" '^(?![qQ]t[_-])')" >> $env:GITHUB_OUTPUT
+          "qt=$(Fingerprint "$env:LibrariesPath\cache_keys" '^[qQ]t[_-]')" >> $env:GITHUB_OUTPUT
+
+      - name: Save ThirdParty cache.
+        if: always() && steps.after.outcome == 'success' && steps.before.outputs.third != steps.after.outputs.third
+        continue-on-error: true
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ env.TBUILD }}\ThirdParty
+          key: bulk-third-party-${{ env.CACHE_KEY }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Save Libraries cache.
+        if: always() && steps.after.outcome == 'success' && steps.before.outputs.libs != steps.after.outputs.libs
+        continue-on-error: true
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            ${{ env.LibrariesPath }}\*
+            !${{ env.LibrariesPath }}\cache_keys
+            !${{ env.LibrariesPath }}\[qQ]t[_-]*
+            ${{ env.LibrariesPath }}\cache_keys\*
+            !${{ env.LibrariesPath }}\cache_keys\[qQ]t[_-]*
+          key: bulk-libs-${{ env.CACHE_KEY }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Save Qt cache.
+        if: always() && steps.after.outcome == 'success' && steps.before.outputs.qt != steps.after.outputs.qt
+        continue-on-error: true
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            ${{ env.LibrariesPath }}\[qQ]t[_-]*
+            ${{ env.LibrariesPath }}\cache_keys\[qQ]t[_-]*
+          key: bulk-qt-${{ env.CACHE_KEY }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Libraries are not complete yet.
+        if: always() && steps.libraries.outcome != 'success' && steps.libraries.outcome != 'skipped'
+        shell: bash
+        run: |
+          echo "::error::The libraries were not finished in this run: either the time limit was reached (normal for the very first build) or a library failed to build (see the 'Libraries' step log). The progress was saved, run the workflow again to continue."
+          exit 1
+
+      - name: Telegram Desktop build.
+        if: env.API_ID != '' && env.API_HASH != ''
+        timeout-minutes: 200
+        run: |
+          cd %TBUILD%\%REPO_NAME%\Telegram
+
+          call configure.bat ^
+          x64 ^
+          -D TDESKTOP_API_ID=%API_ID% ^
+          -D TDESKTOP_API_HASH=%API_HASH% ^
+          -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON ^
+          -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON
+          if %errorlevel% neq 0 exit /b %errorlevel%
+
+          cmake --build ..\out --config Release --target Telegram --parallel
+          if %errorlevel% neq 0 exit /b %errorlevel%
+
+      - name: Package.
+        if: env.API_ID != '' && env.API_HASH != ''
+        shell: bash
+        run: |
+          OUT="$TBUILD/$REPO_NAME/out/Release"
+          mkdir -p artifact
+          cp "$OUT/Telegram.exe" artifact/
+          cp "$TBUILD/$REPO_NAME/docs/bulk-download.md" artifact/README.md
+          (cd artifact && sha256sum Telegram.exe > SHA256SUMS.txt)
+          echo "Built from commit $GITHUB_SHA of $GITHUB_REPOSITORY" > artifact/BUILD-INFO.txt
+          ls -la artifact
+
+      - name: Upload.
+        if: env.API_ID != '' && env.API_HASH != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: Telegram-Bulk-win64
+          path: artifact\
+          retention-days: 30
+
+      - name: API credentials are missing.
+        if: env.API_ID == '' || env.API_HASH == ''
+        shell: bash
+        run: |
+          echo "::error::Libraries are ready, but Telegram.exe was not built because the TDESKTOP_API_ID / TDESKTOP_API_HASH secrets are missing."
+          exit 1

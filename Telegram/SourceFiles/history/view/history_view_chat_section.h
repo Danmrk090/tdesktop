@@ -365,6 +365,7 @@ private:
 
 	void confirmDeleteSelected();
 	void confirmForwardSelected();
+	void downloadSelected();
 	void clearSelected();
 	void setPinnedVisibility(bool shown);
 

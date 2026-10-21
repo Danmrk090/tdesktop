@@ -4152,6 +4152,9 @@ void ApiWrap::forwardMessages(
 				? MTP_int(_session->ephemeralMessages().lookupId(item))
 				: MTP_int(item->id));
 			randomIds.push_back(MTP_long(randomId));
+			if (ids.size() >= ServerIdsBatchLimit) {
+				sendAccumulated();
+			}
 		}
 		sendAccumulated();
 	}

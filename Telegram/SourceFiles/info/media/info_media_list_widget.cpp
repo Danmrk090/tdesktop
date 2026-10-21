@@ -43,6 +43,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "media/stories/media_stories_stealth.h"
 #include "window/window_session_controller.h"
 #include "window/window_peer_menu.h"
+#include "menu/menu_item_download_files.h"
 #include "lang/lang_numbers_animation.h"
 #include "ui/widgets/menu/menu_add_action_callback.h"
 #include "ui/widgets/menu/menu_add_action_callback_factory.h"
@@ -172,7 +173,9 @@ ListWidget::ListWidget(
 	_provider->type(),
 	[=] { scrollDateCheck(); },
 	[=] { scrollDateHide(); }))
-, _selectedLimit(MaxSelectedItems)
+, _selectedLimit(controller->storiesPeer()
+	? int(ServerIdsBatchLimit) // story actions are not batched
+	: int(MaxSelectedItems))
 , _storiesAddToAlbumId(controller->storiesAddToAlbumId())
 , _hiddenMark(std::make_unique<StickerPremiumMark>(
 		&_controller->session(),
@@ -473,6 +476,7 @@ void ListWidget::selectionAction(SelectionAction action) {
 		toggleStoryInProfileSelected(false);
 		return;
 	case SelectionAction::ToggleStoryPin: toggleStoryPinSelected(); return;
+	case SelectionAction::Download: downloadSelected(); return;
 	}
 }
 
@@ -630,6 +634,8 @@ auto ListWidget::collectSelectedItems() const -> SelectedItems {
 		result.canToggleStoryPin = selection.canToggleStoryPin;
 		result.canUnpinStory = selection.canUnpinStory;
 		result.storyInProfile = selection.storyInProfile;
+		result.canDownload = (selection.text == FullSelection)
+			&& canDownloadItem(item);
 		return result;
 	};
 	const auto transformation = [&](const auto &item) {
@@ -1593,6 +1599,22 @@ void ListWidget::showContextMenu(
 				}),
 				&st::menuIconForward);
 		}
+		if (canDownloadSelected()) {
+			_contextMenu->addAction(
+				tr::lng_context_save_documents_selected(tr::now),
+				crl::guard(this, [this] {
+					downloadSelected();
+				}),
+				&st::menuIconDownload);
+		}
+		if (canSelectAllShown()) {
+			_contextMenu->addAction(
+				tr::lng_context_select_all_shown(tr::now),
+				crl::guard(this, [this] {
+					selectAllShown();
+				}),
+				&st::menuIconSelect);
+		}
 		if (canDeleteAll()) {
 			_contextMenu->addAction(
 				(_controller->isDownloads()
@@ -1716,6 +1738,25 @@ void ListWidget::showContextMenu(
 							FullSelection);
 					}),
 					&st::menuIconSelect);
+				if (canSelectUpTo(item)) {
+					_contextMenu->addAction(
+						tr::lng_context_select_msg_bulk(tr::now),
+						crl::guard(this, [=] {
+							if (const auto target = MessageByGlobalId(
+									globalId)) {
+								selectUpTo(target);
+							}
+						}),
+						&st::menuIconSelect);
+				}
+			}
+			if (canSelectAllShown()) {
+				_contextMenu->addAction(
+					tr::lng_context_select_all_shown(tr::now),
+					crl::guard(this, [this] {
+						selectAllShown();
+					}),
+					&st::menuIconSelect);
 			}
 		}
 	}
@@ -1746,6 +1787,129 @@ void ListWidget::contextMenuEvent(QContextMenuEvent *e) {
 void ListWidget::forwardSelected() {
 	if (auto items = collectSelectedIds(); !items.empty()) {
 		forwardItems(std::move(items));
+	}
+}
+
+bool ListWidget::canDownloadItem(not_null<const HistoryItem*> item) const {
+	return !_controller->isDownloads()
+		&& !_controller->storiesPeer()
+		&& !_storiesAddToAlbumId
+		&& !_selectOnClick
+		&& Menu::CanBulkDownload(item);
+}
+
+bool ListWidget::canDownloadSelected() const {
+	return ranges::any_of(_selected, [&](const auto &pair) {
+		return (pair.second.text == FullSelection)
+			&& canDownloadItem(pair.first);
+	});
+}
+
+void ListWidget::downloadSelected() {
+	auto ids = collectSelectedIds();
+	if (ids.empty()) {
+		return;
+	}
+	Menu::DownloadFiles(
+		_controller->parentController(),
+		ids,
+		crl::guard(this, [=] { clearSelected(); }));
+}
+
+bool ListWidget::canSelectAllShown() const {
+	if (_provider->hasSelectRestriction()
+		|| _controller->storiesPeer()
+		|| _storiesAddToAlbumId
+		|| _selectOnClick
+		|| int(_selected.size()) >= _selectedLimit) {
+		return false;
+	}
+	for (const auto &section : _sections) {
+		for (const auto &entry : section.items()) {
+			const auto item = entry->getItem().get();
+			if (!isSelectedItem(_selected.find(item))) {
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+void ListWidget::selectAllShown() {
+	if (!canSelectAllShown()) {
+		return;
+	} else if (hasSelectedText()) {
+		clearSelected();
+	}
+	auto changed = false;
+	for (const auto &section : _sections) {
+		for (const auto &entry : section.items()) {
+			const auto item = entry->getItem();
+			if (ChangeItemSelection(
+					_selected,
+					item,
+					_provider->computeSelectionData(item, FullSelection),
+					_selectedLimit)) {
+				changed = true;
+			}
+		}
+	}
+	if (changed) {
+		update();
+		pushSelectedItems();
+	}
+}
+
+bool ListWidget::canSelectUpTo(not_null<const HistoryItem*> item) const {
+	return _sectionsSortedById
+		&& !_provider->hasSelectRestriction()
+		&& !_controller->storiesPeer()
+		&& !_storiesAddToAlbumId
+		&& !_selectOnClick
+		&& hasSelectedItems()
+		&& !isSelectedItem(_selected.find(item));
+}
+
+void ListWidget::selectUpTo(not_null<const HistoryItem*> item) {
+	if (!canSelectUpTo(item)) {
+		return;
+	}
+	const auto id = GetUniversalId(item).bare;
+	auto nearest = (const HistoryItem*)nullptr;
+	auto nearestDistance = std::numeric_limits<int64>::max();
+	for (const auto &[selected, data] : _selected) {
+		if (data.text != FullSelection) {
+			continue;
+		}
+		const auto distance = std::abs(GetUniversalId(selected).bare - id);
+		if (distance < nearestDistance) {
+			nearest = selected;
+			nearestDistance = distance;
+		}
+	}
+	if (!nearest) {
+		return;
+	}
+	auto from = not_null<const HistoryItem*>(nearest);
+	auto till = item;
+	if (_provider->isAfter(from, till)) {
+		std::swap(from, till);
+	}
+	auto range = SelectedMap();
+	_provider->applyDragSelection(range, from, false, till, false);
+	auto changed = false;
+	for (const auto &[selected, data] : range) {
+		if (ChangeItemSelection(
+				_selected,
+				selected,
+				_provider->computeSelectionData(selected, FullSelection),
+				_selectedLimit)) {
+			changed = true;
+		}
+	}
+	if (changed) {
+		update();
+		pushSelectedItems();
 	}
 }
 

@@ -312,6 +312,7 @@ public:
 
 	void forwardSelected();
 	void confirmDeleteSelected();
+	void downloadSelected();
 	void clearSelected();
 
 	[[nodiscard]] SendMenu::Details sendMenuDetails() const override;

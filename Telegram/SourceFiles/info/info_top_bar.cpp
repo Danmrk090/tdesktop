@@ -459,6 +459,10 @@ void TopBar::updateSelectionControlsGeometry(int newWidth) {
 		_toggleStoryPin->moveToRight(right, 0, newWidth);
 		right += _toggleStoryPin->width();
 	}
+	if (_canDownload) {
+		_download->moveToRight(right, 0, newWidth);
+		right += _download->width();
+	}
 	if (_canForward) {
 		_forward->moveToRight(right, 0, newWidth);
 		right += _forward->width();
@@ -660,6 +664,7 @@ void TopBar::setSelectedItems(SelectedItems &&items) {
 SelectedItems TopBar::takeSelectedItems() {
 	_canDelete = false;
 	_canForward = false;
+	_canDownload = false;
 	return std::move(_selectedItems);
 }
 
@@ -671,17 +676,20 @@ void TopBar::updateSelectionState() {
 	Expects(_selectionText
 		&& _delete
 		&& _forward
+		&& _download
 		&& _toggleStoryInProfile
 		&& _toggleStoryPin);
 
 	_canDelete = computeCanDelete();
 	_canForward = computeCanForward();
+	_canDownload = computeCanDownload();
 	_canUnpinStories = computeCanUnpinStories();
 	_canToggleStoryPin = computeCanToggleStoryPin();
 	_allStoriesInProfile = computeAllStoriesInProfile();
 	_selectionText->entity()->setValue(generateSelectedText());
 	_delete->toggle(_canDelete, anim::type::instant);
 	_forward->toggle(_canForward, anim::type::instant);
+	_download->toggle(_canDownload, anim::type::instant);
 	_toggleStoryInProfile->toggle(_canToggleStoryPin, anim::type::instant);
 	_toggleStoryInProfile->entity()->setIconOverride(
 		(_allStoriesInProfile
@@ -714,6 +722,7 @@ void TopBar::createSelectionControls() {
 	};
 	_canDelete = computeCanDelete();
 	_canForward = computeCanForward();
+	_canDownload = computeCanDownload();
 	_canUnpinStories = computeCanUnpinStories();
 	_canToggleStoryPin = computeCanToggleStoryPin();
 	_allStoriesInProfile = computeAllStoriesInProfile();
@@ -782,6 +791,24 @@ void TopBar::createSelectionControls() {
 		_cancelSelection->lifetime());
 	_delete->entity()->setVisible(_canDelete);
 
+	_download = wrap(Ui::CreateChild<Ui::FadeWrap<Ui::IconButton>>(
+		this,
+		object_ptr<Ui::IconButton>(this, _st.mediaDownload),
+		st::infoTopBarScale));
+	registerToggleControlCallback(
+		_download.data(),
+		[this] { return selectionMode() && _canDownload; });
+	_download->setDuration(st::infoTopBarDuration);
+	_download->entity()->setAccessibleName(
+		tr::lng_context_save_documents_selected(tr::now));
+	_download->entity()->clicks(
+	) | rpl::map_to(
+		SelectionAction::Download
+	) | rpl::start_to_stream(
+		_selectionActionRequests,
+		_cancelSelection->lifetime());
+	_download->entity()->setVisible(_canDownload);
+
 	_toggleStoryInProfile = wrap(
 		Ui::CreateChild<Ui::FadeWrap<Ui::IconButton>>(
 			this,
@@ -842,6 +869,10 @@ bool TopBar::computeCanDelete() const {
 
 bool TopBar::computeCanForward() const {
 	return ranges::all_of(_selectedItems.list, &SelectedItem::canForward);
+}
+
+bool TopBar::computeCanDownload() const {
+	return ranges::any_of(_selectedItems.list, &SelectedItem::canDownload);
 }
 
 bool TopBar::computeCanUnpinStories() const {

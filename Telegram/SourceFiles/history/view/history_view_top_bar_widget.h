@@ -59,6 +59,7 @@ public:
 		int canDeleteCount = 0;
 		int canForwardCount = 0;
 		int canSendNowCount = 0;
+		int canDownloadCount = 0;
 	};
 	using ActiveChat = Dialogs::EntryState;
 	using Section = ActiveChat::Section;
@@ -112,6 +113,9 @@ public:
 	}
 	[[nodiscard]] rpl::producer<> deleteSelectionRequest() const {
 		return _deleteSelection.events();
+	}
+	[[nodiscard]] rpl::producer<> downloadSelectionRequest() const {
+		return _downloadSelection.events();
 	}
 	[[nodiscard]] rpl::producer<> clearSelectionRequest() const {
 		return _clearSelection.events();
@@ -227,6 +231,8 @@ private:
 	bool _canDelete = false;
 	bool _canForward = false;
 	bool _canSendNow = false;
+	bool _canDownload = false;
+	int _selectedDownloadCount = 0;
 	bool _searchMode = false;
 
 	Ui::Animations::Simple _selectedShown;
@@ -234,6 +240,7 @@ private:
 
 	object_ptr<Ui::RoundButton> _clear;
 	object_ptr<Ui::RoundButton> _forward, _sendNow, _delete;
+	object_ptr<Ui::RoundButton> _download;
 	object_ptr<Ui::InputField> _searchField = { nullptr };
 	object_ptr<Ui::FadeWrapScaled<Ui::IconButton>> _chooseFromUser
 		= { nullptr };
@@ -282,6 +289,7 @@ private:
 	rpl::event_stream<> _forwardSelection;
 	rpl::event_stream<> _sendNowSelection;
 	rpl::event_stream<> _deleteSelection;
+	rpl::event_stream<> _downloadSelection;
 	rpl::event_stream<> _clearSelection;
 	rpl::event_stream<> _cancelChooseForReport;
 

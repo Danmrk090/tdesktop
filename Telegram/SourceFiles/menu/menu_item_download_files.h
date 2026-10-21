@@ -25,6 +25,14 @@ class SessionController;
 
 namespace Menu {
 
+[[nodiscard]] bool CanBulkDownload(not_null<const HistoryItem*> item);
+
+// Messages without files or with protected content are skipped.
+void DownloadFiles(
+	not_null<Window::SessionController*> window,
+	const MessageIdsList &ids,
+	Fn<void()> started = nullptr);
+
 void AddDownloadFilesAction(
 	not_null<Ui::PopupMenu*> menu,
 	not_null<Window::SessionController*> window,

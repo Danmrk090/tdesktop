@@ -5279,6 +5279,9 @@ auto HistoryInner::getSelectionState() const
 		if (item->allowsForward()) {
 			++result.canForwardCount;
 		}
+		if (Menu::CanBulkDownload(item)) {
+			++result.canDownloadCount;
+		}
 	}
 	result.textSelected = hasSelectedText()
 		&& !_selectedTextSelection.empty();

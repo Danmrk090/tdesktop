@@ -288,6 +288,9 @@ private:
 		Fn<bool(FileProgress)> progress,
 		FnMut<void(QString)> done);
 	void loadFilePart();
+	void sendFilePart(int64 offset);
+	void cancelFileParts();
+	void filePartFailed(int64 offset, const MTP::Error &error);
 	void filePartDone(int64 offset, const MTPupload_File &result);
 	void filePartUnavailable();
 	[[nodiscard]] QString filePartMediaFolder() const;

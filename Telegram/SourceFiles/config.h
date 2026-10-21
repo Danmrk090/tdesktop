@@ -10,7 +10,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "settings.h"
 
 enum {
-	MaxSelectedItems = 100,
+	MaxSelectedItems = 1000,
+	ServerIdsBatchLimit = 100, // max message ids in one API request
 
 	LocalEncryptIterCount = 4000, // key derivation iteration count
 	LocalEncryptNoPwdIterCount = 4, // key derivation iteration count without pwd (not secure anyway)

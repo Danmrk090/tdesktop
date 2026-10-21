@@ -217,6 +217,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_info.h"
 #include "styles/style_iv.h"
 #include "styles/style_layers.h"
+#include "menu/menu_item_download_files.h"
 
 #include <QtGui/QWindow>
 #include <QtCore/QMimeData>
@@ -1116,6 +1117,10 @@ HistoryWidget::HistoryWidget(
 	_topBar->forwardSelectionRequest(
 	) | rpl::on_next([=] {
 		forwardSelected();
+	}, _topBar->lifetime());
+	_topBar->downloadSelectionRequest(
+	) | rpl::on_next([=] {
+		downloadSelected();
 	}, _topBar->lifetime());
 	_topBar->deleteSelectionRequest(
 	) | rpl::on_next([=] {
@@ -10916,6 +10921,22 @@ bool HistoryWidget::updateCanSendMessage() {
 	refreshSendGiftToggle();
 	refreshSilentToggle();
 	return true;
+}
+
+void HistoryWidget::downloadSelected() {
+	if (!_list) {
+		return;
+	}
+	const auto ids = _list->getSelectedItems();
+	if (ids.empty()) {
+		return;
+	}
+	const auto weak = base::make_weak(this);
+	Menu::DownloadFiles(controller(), ids, [=] {
+		if (const auto strong = weak.get()) {
+			strong->clearSelected();
+		}
+	});
 }
 
 void HistoryWidget::forwardSelected() {
