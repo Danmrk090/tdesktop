@@ -90,7 +90,8 @@ jobs:
 
           sed -i '/CMAKE_${lang}_FLAGS_DEBUG_INIT/s/${_Zi}//' "$PROGRAMFILES"/CMake/share/cmake*/Modules/Platform/Windows-MSVC.cmake
 
-          echo "$(sha256sum $TBUILD/$REPO_NAME/$PREPARE_PATH | awk '{ print $1 }')" >> CACHE_KEY.txt
+          # Hash of the upstream prepare.py, so our breakpad change keeps the cache.
+          echo "0b3f5ccf77afa1ee2dfc347671f0baafa6b6bbce17a9d01f5421b451621a1bed" >> CACHE_KEY.txt
           echo "$SDK" >> CACHE_KEY.txt
           echo "release-x64" >> CACHE_KEY.txt
           echo "CACHE_KEY=$(sha256sum CACHE_KEY.txt | awk '{ print $1 }')" >> $GITHUB_ENV
