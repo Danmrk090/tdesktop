@@ -165,6 +165,17 @@ jobs:
           key: bulk-qt-${{ env.CACHE_KEY }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: bulk-qt-${{ env.CACHE_KEY }}-
 
+      - name: Repair trimmed libraries.
+        shell: pwsh
+        run: |
+          # An older cache trimmed a generated source file the app compiles.
+          $cpp = "$env:LibrariesPath\tdesktop_rust\out\src\wallet_engine\wallet_engine.cpp"
+          $key = "$env:LibrariesPath\cache_keys\tdesktop_rust"
+          if ((Test-Path $key) -and -not (Test-Path $cpp)) {
+            Remove-Item -Force $key
+            Write-Host "tdesktop_rust will be rebuilt."
+          }
+
       - name: Fingerprint libraries before the build.
         id: before
         shell: pwsh
@@ -238,7 +249,7 @@ jobs:
       - name: Free up some disk space.
         if: always() && steps.libraries.outcome != 'skipped'
         shell: bash
-        run: find $LibrariesPath '(' '(' ! '(' -name '*.lib' -o -name '*.a' -o -name '*.exe' -o -name '*.h' -o -name '*.hpp' -o -name '*.inc' -o -name '*.cmake' -o -name '*.pc' -o -path '*/include/*' -o -path '*/objects-*' -o -path '*/cache_keys/*' -o -path '*/patches/*' -o -path '*/nv-codec-headers/*' ')' -type f ')' -o -empty ')' -delete
+        run: find $LibrariesPath '(' '(' ! '(' -name '*.lib' -o -name '*.a' -o -name '*.exe' -o -name '*.h' -o -name '*.hpp' -o -name '*.inc' -o -name '*.cmake' -o -name '*.pc' -o -path '*/include/*' -o -path '*/objects-*' -o -path '*/cache_keys/*' -o -path '*/patches/*' -o -path '*/nv-codec-headers/*' -o -path '*/tdesktop_rust/*' ')' -type f ')' -o -empty ')' -delete
 
       - name: Fingerprint libraries after the build.
         id: after
