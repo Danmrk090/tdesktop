@@ -49,8 +49,9 @@ jobs:
     steps:
       - name: Prepare directories.
         run: |
-          mkdir %userprofile%\TBuild\Libraries
-          mklink /d %GITHUB_WORKSPACE%\TBuild %userprofile%\TBuild
+          rem The D: drive has much more free space than C: on these runners.
+          mkdir D:\TBuild\Libraries
+          mklink /d %GITHUB_WORKSPACE%\TBuild D:\TBuild
           echo TBUILD=%GITHUB_WORKSPACE%\TBuild>>%GITHUB_ENV%
           echo LibrariesPath=%GITHUB_WORKSPACE%\TBuild\Libraries\win64>>%GITHUB_ENV%
 
@@ -58,7 +59,7 @@ jobs:
         shell: bash
         run: echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
 
-      - name: Make room on the disk.
+      - name: Report disk space.
         shell: pwsh
         run: |
           function Report($text) {
@@ -71,28 +72,6 @@ jobs:
             }
           }
           $before = [math]::Round((Get-PSDrive C).Free / 1GB, 1)
-          $dirs = @(
-            'C:\Android',
-            'C:\Program Files (x86)\Android',
-            'C:\hostedtoolcache\windows\CodeQL',
-            'C:\hostedtoolcache\windows\go',
-            'C:\hostedtoolcache\windows\PyPy',
-            'C:\hostedtoolcache\windows\Ruby',
-            'C:\hostedtoolcache\windows\Java_Temurin-Hotspot_jdk',
-            'C:\Program Files\MongoDB',
-            'C:\Program Files\PostgreSQL',
-            'C:\Program Files\Microsoft SQL Server',
-            'C:\Miniconda',
-            'C:\SeleniumWebDrivers',
-            'C:\tools\php',
-            'C:\Rust',
-            'C:\Julia'
-          )
-          foreach ($dir in $dirs) {
-            if (Test-Path $dir) {
-              cmd /c "rmdir /S /Q `"$dir`"" 2>$null
-            }
-          }
           $after = [math]::Round((Get-PSDrive C).Free / 1GB, 1)
           $d = Get-PSDrive D -ErrorAction SilentlyContinue
           $dfree = if ($d) { [math]::Round($d.Free / 1GB, 1) } else { 0 }
@@ -139,7 +118,7 @@ jobs:
           # Hash of the upstream prepare.py, so our breakpad change keeps the cache.
           echo "0b3f5ccf77afa1ee2dfc347671f0baafa6b6bbce17a9d01f5421b451621a1bed" >> CACHE_KEY.txt
           echo "$SDK" >> CACHE_KEY.txt
-          echo "release-x64" >> CACHE_KEY.txt
+          echo "release-x64-d" >> CACHE_KEY.txt
           echo "CACHE_KEY=$(sha256sum CACHE_KEY.txt | awk '{ print $1 }')" >> $GITHUB_ENV
 
           echo "Configurate git for cherry-picks."
@@ -223,11 +202,11 @@ jobs:
             $log.WriteLine($line)
             if ($line -match '^\[\d+/\d+\]\(([^)]*)\)') {
               $stage = $line
-              $free = [math]::Round((Get-PSDrive C).Free / 1GB, 1)
+              $free = [math]::Round((Get-PSDrive D).Free / 1GB, 1)
               Report "$free GB free | $stage"
               $last = Get-Date
             } elseif (((Get-Date) - $last).TotalMinutes -ge 10) {
-              $free = [math]::Round((Get-PSDrive C).Free / 1GB, 1)
+              $free = [math]::Round((Get-PSDrive D).Free / 1GB, 1)
               Report "$free GB free | still: $stage"
               $last = Get-Date
             }
@@ -235,7 +214,7 @@ jobs:
           $code = $LASTEXITCODE
           $log.Close()
           Get-Content -Tail 300 "$env:TBUILD\libraries.log"
-          $free = [math]::Round((Get-PSDrive C).Free / 1GB, 1)
+          $free = [math]::Round((Get-PSDrive D).Free / 1GB, 1)
           Report "Libraries exit $code, $free GB free | $stage"
           exit $code
 
