@@ -25,6 +25,10 @@ concurrency:
   group: bulk-windows-${{ github.ref }}
   cancel-in-progress: false
 
+permissions:
+  contents: read
+  statuses: write
+
 jobs:
 
   windows:
@@ -36,6 +40,7 @@ jobs:
       PREPARE_PATH: "Telegram/build/prepare/prepare.py"
       API_ID: ${{ secrets.TDESKTOP_API_ID }}
       API_HASH: ${{ secrets.TDESKTOP_API_HASH }}
+      GH_TOKEN: ${{ github.token }}
 
     defaults:
       run:
@@ -52,6 +57,47 @@ jobs:
       - name: Get repository name.
         shell: bash
         run: echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
+
+      - name: Make room on the disk.
+        shell: pwsh
+        run: |
+          function Report($text) {
+            if ($text.Length -gt 135) { $text = $text.Substring(0, 135) }
+            try {
+              $body = @{ state = 'pending'; context = 'bulk/progress'; description = $text } | ConvertTo-Json
+              Invoke-RestMethod -Method Post -Uri "https://api.github.com/repos/$env:GITHUB_REPOSITORY/statuses/$env:GITHUB_SHA" -Headers @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = 'application/vnd.github+json' } -Body $body -ContentType 'application/json' | Out-Null
+            } catch {
+              Write-Host "Status report failed: $_"
+            }
+          }
+          $before = [math]::Round((Get-PSDrive C).Free / 1GB, 1)
+          $dirs = @(
+            'C:\Android',
+            'C:\Program Files (x86)\Android',
+            'C:\hostedtoolcache\windows\CodeQL',
+            'C:\hostedtoolcache\windows\go',
+            'C:\hostedtoolcache\windows\PyPy',
+            'C:\hostedtoolcache\windows\Ruby',
+            'C:\hostedtoolcache\windows\Java_Temurin-Hotspot_jdk',
+            'C:\Program Files\MongoDB',
+            'C:\Program Files\PostgreSQL',
+            'C:\Program Files\Microsoft SQL Server',
+            'C:\Miniconda',
+            'C:\SeleniumWebDrivers',
+            'C:\tools\php',
+            'C:\Rust',
+            'C:\Julia'
+          )
+          foreach ($dir in $dirs) {
+            if (Test-Path $dir) {
+              cmd /c "rmdir /S /Q `"$dir`"" 2>$null
+            }
+          }
+          $after = [math]::Round((Get-PSDrive C).Free / 1GB, 1)
+          $d = Get-PSDrive D -ErrorAction SilentlyContinue
+          $dfree = if ($d) { [math]::Round($d.Free / 1GB, 1) } else { 0 }
+          Write-Host "C: free $before GB -> $after GB, D: free $dfree GB"
+          Report "Disk: C $before->$after GB free, D $dfree GB"
 
       - name: Clone.
         uses: actions/checkout@v7
@@ -158,11 +204,40 @@ jobs:
       - name: Libraries.
         id: libraries
         timeout-minutes: 290
+        shell: pwsh
         run: |
-          %TBUILD%\%REPO_NAME%\Telegram\build\prepare\win.bat silent > %TBUILD%\libraries.log 2>&1
-          set RESULT=%errorlevel%
-          powershell -NoProfile -Command "Get-Content -Tail 400 $env:TBUILD\libraries.log"
-          exit /b %RESULT%
+          function Report($text) {
+            if ($text.Length -gt 135) { $text = $text.Substring(0, 135) }
+            try {
+              $body = @{ state = 'pending'; context = 'bulk/progress'; description = $text } | ConvertTo-Json
+              Invoke-RestMethod -Method Post -Uri "https://api.github.com/repos/$env:GITHUB_REPOSITORY/statuses/$env:GITHUB_SHA" -Headers @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = 'application/vnd.github+json' } -Body $body -ContentType 'application/json' | Out-Null
+            } catch {
+              Write-Host "Status report failed: $_"
+            }
+          }
+          $log = [System.IO.StreamWriter]::new("$env:TBUILD\libraries.log")
+          $stage = ""
+          $last = Get-Date
+          & cmd /c "$env:TBUILD\$env:REPO_NAME\Telegram\build\prepare\win.bat silent 2>&1" | ForEach-Object {
+            $line = "$_"
+            $log.WriteLine($line)
+            if ($line -match '^\[\d+/\d+\]\(([^)]*)\)') {
+              $stage = $line
+              $free = [math]::Round((Get-PSDrive C).Free / 1GB, 1)
+              Report "$free GB free | $stage"
+              $last = Get-Date
+            } elseif (((Get-Date) - $last).TotalMinutes -ge 10) {
+              $free = [math]::Round((Get-PSDrive C).Free / 1GB, 1)
+              Report "$free GB free | still: $stage"
+              $last = Get-Date
+            }
+          }
+          $code = $LASTEXITCODE
+          $log.Close()
+          Get-Content -Tail 300 "$env:TBUILD\libraries.log"
+          $free = [math]::Round((Get-PSDrive C).Free / 1GB, 1)
+          Report "Libraries exit $code, $free GB free | $stage"
+          exit $code
 
       - name: Report library build errors.
         if: always() && steps.libraries.outcome == 'failure'

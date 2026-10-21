@@ -1758,7 +1758,7 @@ win:
     SET CONFIGURATIONS=-debug
     SET ASSERTS=
 release:
-    SET CONFIGURATIONS=-debug-and-release
+    SET CONFIGURATIONS=-release
 win_asserts:
     SET ASSERTS=-force-asserts
 win:
@@ -1772,7 +1772,6 @@ win:
     configure -prefix "%LIBS_DIR%\\Qt-%QT%" ^
         %CONFIGURATIONS% ^
         %ASSERTS% ^
-        -force-debug-info ^
         -opensource ^
         -confirm-license ^
         -static ^
@@ -1821,10 +1820,10 @@ win:
         -D LCMS2_INCLUDE_DIR="%LCMS2_DIR%\\include" ^
         -D LCMS2_LIBRARIES="%LCMS2_DIR%\\out\\Release\\src\\liblcms2.a"
 
-    cmake --build . --config Debug
-    cmake --install . --config Debug
     cmake --build .
     cmake --install .
+    cd ..
+    rmdir /S /Q qt_%QT% & ver > nul
 """)
 
 stage('tg_owt', """
@@ -1849,7 +1848,6 @@ win:
         -DTG_OWT_LIBVPX_INCLUDE_PATH=$LIBVPX_PATH \
         -DTG_OWT_OPENH264_INCLUDE_PATH=$OPENH264_PATH \
         -DTG_OWT_FFMPEG_INCLUDE_PATH=$FFMPEG_PATH
-    cmake --build out --config Debug
 release:
     cmake --build out --config Release
 mac:
