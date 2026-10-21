@@ -158,7 +158,27 @@ jobs:
         id: libraries
         timeout-minutes: 290
         run: |
-          %TBUILD%\%REPO_NAME%\Telegram\build\prepare\win.bat silent
+          %TBUILD%\%REPO_NAME%\Telegram\build\prepare\win.bat silent > %TBUILD%\libraries.log 2>&1
+          set RESULT=%errorlevel%
+          powershell -NoProfile -Command "Get-Content -Tail 400 $env:TBUILD\libraries.log"
+          exit /b %RESULT%
+
+      - name: Report library build errors.
+        if: always() && steps.libraries.outcome == 'failure'
+        shell: bash
+        run: |
+          LOG="$TBUILD/libraries.log"
+          [ -f "$LOG" ] || exit 0
+          encode() { sed -e 's/%/%25/g' -e 's/\r//g' | awk 'BEGIN{ORS="%0A"} {print}'; }
+          STAGES=$(grep -aE '^\[[0-9]+/[0-9]+\]' "$LOG" | tail -n 8 | cut -c1-200 | encode)
+          echo "::error title=Library stages::$STAGES"
+          ERRORS=$(grep -aiE 'error|fatal|failed|cannot|not found|denied' "$LOG" | tail -n 40 | cut -c1-300 | encode)
+          echo "::error title=Library errors::$ERRORS"
+          for part in 1 2 3; do
+            FROM=$(( (3 - part) * 30 + 1 ))
+            CHUNK=$(tail -n $(( (4 - part) * 30 )) "$LOG" | head -n 30 | cut -c1-300 | encode)
+            echo "::error title=Library log tail $part::$CHUNK"
+          done
 
       - name: Free up some disk space.
         if: always() && steps.libraries.outcome != 'skipped'
