@@ -241,6 +241,7 @@ jobs:
           exit 1
 
       - name: Telegram Desktop build.
+        id: telegram
         if: steps.credentials.outputs.ok == 'true'
         timeout-minutes: 200
         run: |
@@ -251,11 +252,29 @@ jobs:
           -D TDESKTOP_API_ID=%CLEAN_API_ID% ^
           -D TDESKTOP_API_HASH=%CLEAN_API_HASH% ^
           -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON ^
-          -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON
-          if %errorlevel% neq 0 exit /b %errorlevel%
+          -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON > %TBUILD%\telegram.log 2>&1
+          set RESULT=%errorlevel%
+          if %RESULT% neq 0 (
+            powershell -NoProfile -Command "Get-Content -Tail 300 $env:TBUILD\telegram.log"
+            exit /b %RESULT%
+          )
 
-          cmake --build ..\out --config Release --target Telegram --parallel
-          if %errorlevel% neq 0 exit /b %errorlevel%
+          cmake --build ..\out --config Release --target Telegram --parallel >> %TBUILD%\telegram.log 2>&1
+          set RESULT=%errorlevel%
+          powershell -NoProfile -Command "Get-Content -Tail 300 $env:TBUILD\telegram.log"
+          exit /b %RESULT%
+
+      - name: Report Telegram build errors.
+        if: always() && steps.telegram.outcome == 'failure'
+        shell: bash
+        run: |
+          LOG="$TBUILD/telegram.log"
+          [ -f "$LOG" ] || exit 0
+          encode() { sed -e 's/%/%25/g' -e 's/\r//g' | awk 'BEGIN{ORS="%0A"} {print}'; }
+          ERRORS=$(grep -aE ' error [A-Z]+[0-9]+|fatal error|error MSB|: error|CMake Error' "$LOG" | sort -u | head -n 40 | cut -c1-400 | encode)
+          echo "::error title=Telegram build errors::$ERRORS"
+          TAIL=$(tail -n 40 "$LOG" | cut -c1-300 | encode)
+          echo "::error title=Telegram build log tail::$TAIL"
 
       - name: Package.
         if: steps.credentials.outputs.ok == 'true'
