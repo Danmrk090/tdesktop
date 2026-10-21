@@ -60,15 +60,25 @@ jobs:
           path: ${{ env.TBUILD }}\${{ env.REPO_NAME }}
 
       - name: Check API credentials.
+        id: credentials
         shell: bash
         run: |
-          if [ -z "$API_ID" ] || [ -z "$API_HASH" ]; then
-            echo "::warning::The TDESKTOP_API_ID / TDESKTOP_API_HASH secrets are not set. Libraries will be built, but Telegram.exe will not. Add the secrets and run the workflow again."
-          elif ! [[ "$API_ID" =~ ^[0-9]+$ ]] || ! [[ "$API_HASH" =~ ^[0-9a-fA-F]{32}$ ]]; then
-            echo "::error::TDESKTOP_API_ID must be a number and TDESKTOP_API_HASH must be 32 hexadecimal characters (copy them from https://my.telegram.org)."
-            exit 1
+          # Libraries don't need the credentials, so they are built anyway.
+          ID="$(echo "$API_ID" | tr -d '[:space:]')"
+          HASH="$(echo "$API_HASH" | tr -d '[:space:]')"
+          if [[ "$ID" =~ ^[0-9]+$ ]] && [[ "$HASH" =~ ^[0-9a-fA-F]{32}$ ]]; then
+            echo "::add-mask::$ID"
+            echo "::add-mask::$HASH"
+            echo "CLEAN_API_ID=$ID" >> $GITHUB_ENV
+            echo "CLEAN_API_HASH=$HASH" >> $GITHUB_ENV
+            echo "API credentials look fine."
+            echo "ok=true" >> $GITHUB_OUTPUT
           else
-            echo "API credentials are set."
+            echo "::warning::The api_id secret must contain only digits and the api_hash secret exactly 32 characters 0-9/a-f (copy the values from https://my.telegram.org). Libraries will be built, Telegram.exe will not."
+            DIGITS=no; [[ "$ID" =~ ^[0-9]+$ ]] && DIGITS=yes
+            HEX=no; [[ "$HASH" =~ ^[0-9a-fA-F]+$ ]] && HEX=yes
+            echo "::warning::api_id: ${#ID} characters, only digits: $DIGITS. api_hash: ${#HASH} characters, only 0-9/a-f: $HEX."
+            echo "ok=false" >> $GITHUB_OUTPUT
           fi
 
       - name: First set up.
@@ -210,15 +220,15 @@ jobs:
           exit 1
 
       - name: Telegram Desktop build.
-        if: env.API_ID != '' && env.API_HASH != ''
+        if: steps.credentials.outputs.ok == 'true'
         timeout-minutes: 200
         run: |
           cd %TBUILD%\%REPO_NAME%\Telegram
 
           call configure.bat ^
           x64 ^
-          -D TDESKTOP_API_ID=%API_ID% ^
-          -D TDESKTOP_API_HASH=%API_HASH% ^
+          -D TDESKTOP_API_ID=%CLEAN_API_ID% ^
+          -D TDESKTOP_API_HASH=%CLEAN_API_HASH% ^
           -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON ^
           -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON
           if %errorlevel% neq 0 exit /b %errorlevel%
@@ -227,7 +237,7 @@ jobs:
           if %errorlevel% neq 0 exit /b %errorlevel%
 
       - name: Package.
-        if: env.API_ID != '' && env.API_HASH != ''
+        if: steps.credentials.outputs.ok == 'true'
         shell: bash
         run: |
           OUT="$TBUILD/$REPO_NAME/out/Release"
@@ -239,7 +249,7 @@ jobs:
           ls -la artifact
 
       - name: Upload.
-        if: env.API_ID != '' && env.API_HASH != ''
+        if: steps.credentials.outputs.ok == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: Telegram-Bulk-win64
@@ -247,8 +257,8 @@ jobs:
           retention-days: 30
 
       - name: API credentials are missing.
-        if: env.API_ID == '' || env.API_HASH == ''
+        if: steps.credentials.outputs.ok != 'true'
         shell: bash
         run: |
-          echo "::error::Libraries are ready, but Telegram.exe was not built because the TDESKTOP_API_ID / TDESKTOP_API_HASH secrets are missing."
+          echo "::error::Libraries are ready, but Telegram.exe was not built: fix the api_id / api_hash secrets and run the workflow again."
           exit 1
