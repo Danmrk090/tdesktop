@@ -321,6 +321,14 @@ jobs:
           echo "::error::The libraries were not finished in this run: either the time limit was reached (normal for the very first build) or a library failed to build (see the 'Libraries' step log). The progress was saved, run the workflow again to continue."
           exit 1
 
+      - name: Configure pagefile.
+        if: steps.credentials.outputs.ok == 'true'
+        uses: al-cheb/configure-pagefile-action@v1.4
+        with:
+          minimum-size: 16GB
+          maximum-size: 40GB
+          disk-root: "D:"
+
       - name: Telegram Desktop build.
         id: telegram
         if: steps.credentials.outputs.ok == 'true'
@@ -340,7 +348,8 @@ jobs:
             exit /b %RESULT%
           )
 
-          cmake --build ..\out --config Release --target Telegram --parallel >> %TBUILD%\telegram.log 2>&1
+          rem One project at a time, each one already compiles on all cores (/MP).
+          cmake --build ..\out --config Release --target Telegram --parallel 1 >> %TBUILD%\telegram.log 2>&1
           set RESULT=%errorlevel%
           powershell -NoProfile -Command "Get-Content -Tail 300 $env:TBUILD\telegram.log"
           exit /b %RESULT%
