@@ -168,11 +168,27 @@ jobs:
       - name: Repair trimmed libraries.
         shell: pwsh
         run: |
-          # An older cache trimmed a generated source file the app compiles.
-          $cpp = "$env:LibrariesPath\tdesktop_rust\out\src\wallet_engine\wallet_engine.cpp"
-          $key = "$env:LibrariesPath\cache_keys\tdesktop_rust"
-          if ((Test-Path $key) -and -not (Test-Path $cpp)) {
-            Remove-Item -Force $key
+          $libs = $env:LibrariesPath
+          # The Qt build folder is deleted after install, prepare.py only needs it to exist.
+          Get-ChildItem -Path "$libs\cache_keys" -Filter 'qt_*' -File -ErrorAction SilentlyContinue | ForEach-Object {
+            $dir = Join-Path $libs $_.Name
+            if (-not (Test-Path $dir)) {
+              New-Item -ItemType Directory -Path $dir | Out-Null
+              Set-Content -Path (Join-Path $dir 'installed.h') -Value '// Qt is installed.'
+              Write-Host "Restored the $($_.Name) folder marker."
+            }
+          }
+          # Older caches trimmed the Rust sources that tdesktop_rust is built from.
+          foreach ($name in @('tlottie', 'wallet-engine')) {
+            if ((Test-Path "$libs\cache_keys\$name") -and -not (Test-Path "$libs\$name\Cargo.toml")) {
+              Remove-Item -Force "$libs\cache_keys\$name"
+              Remove-Item -Force -ErrorAction SilentlyContinue "$libs\cache_keys\tdesktop_rust"
+              Write-Host "$name and tdesktop_rust will be rebuilt."
+            }
+          }
+          $cpp = "$libs\tdesktop_rust\out\src\wallet_engine\wallet_engine.cpp"
+          if ((Test-Path "$libs\cache_keys\tdesktop_rust") -and -not (Test-Path $cpp)) {
+            Remove-Item -Force "$libs\cache_keys\tdesktop_rust"
             Write-Host "tdesktop_rust will be rebuilt."
           }
 
@@ -249,7 +265,7 @@ jobs:
       - name: Free up some disk space.
         if: always() && steps.libraries.outcome != 'skipped'
         shell: bash
-        run: find $LibrariesPath '(' '(' ! '(' -name '*.lib' -o -name '*.a' -o -name '*.exe' -o -name '*.h' -o -name '*.hpp' -o -name '*.inc' -o -name '*.cmake' -o -name '*.pc' -o -path '*/include/*' -o -path '*/objects-*' -o -path '*/cache_keys/*' -o -path '*/patches/*' -o -path '*/nv-codec-headers/*' -o -path '*/tdesktop_rust/*' -o -name '*.patch' -o -name '*.diff' ')' -type f ')' -o -empty ')' -delete
+        run: find $LibrariesPath '(' '(' ! '(' -name '*.lib' -o -name '*.a' -o -name '*.exe' -o -name '*.h' -o -name '*.hpp' -o -name '*.inc' -o -name '*.cmake' -o -name '*.pc' -o -path '*/include/*' -o -path '*/objects-*' -o -path '*/cache_keys/*' -o -path '*/patches/*' -o -path '*/nv-codec-headers/*' -o -path '*/tdesktop_rust/*' -o -path '*/tlottie/*' -o -path '*/wallet-engine/*' -o -name '*.patch' -o -name '*.diff' ')' -type f ')' -o -empty ')' -delete
 
       - name: Fingerprint libraries after the build.
         id: after
