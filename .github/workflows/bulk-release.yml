@@ -4,14 +4,16 @@ name: Publish Telegram Bulk build.
 # Draft releases are visible only to the owner of the repository.
 
 on:
+  push:
+    branches:
+      - bulk-download
+    paths:
+      - '.github/bulk-publish.txt'
   workflow_dispatch:
     inputs:
       run_id:
         description: 'Id of the successful "Telegram Bulk for Windows x64." run'
         required: true
-  workflow_run:
-    workflows: ["Telegram Bulk for Windows x64."]
-    types: [completed]
 
 permissions:
   contents: write
@@ -21,11 +23,21 @@ jobs:
   publish:
     name: Publish
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     env:
       GH_TOKEN: ${{ github.token }}
-      RUN_ID: ${{ inputs.run_id || github.event.workflow_run.id }}
+      INPUT_RUN_ID: ${{ inputs.run_id }}
     steps:
+      - name: Find the build.
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github
+
+      - name: Read the run id.
+        run: |
+          RUN_ID="${INPUT_RUN_ID:-$(tr -cd '0-9' < .github/bulk-publish.txt)}"
+          echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
+          echo "Publishing run $RUN_ID"
+
       - name: Download the build.
         run: |
           gh run download "$RUN_ID" -R "$GITHUB_REPOSITORY" -n Telegram-Bulk-win64 -D build

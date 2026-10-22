@@ -21,6 +21,7 @@ on:
     paths-ignore:
       - '**.md'
       - '.github/workflows/bulk-release.yml'
+      - '.github/bulk-publish.txt'
 
 concurrency:
   group: bulk-windows-${{ github.ref }}
