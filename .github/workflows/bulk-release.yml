@@ -1,0 +1,49 @@
+name: Publish Telegram Bulk build.
+
+# Copies the Telegram.exe of a finished build into a draft release.
+# Draft releases are visible only to the owner of the repository.
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'Id of the successful "Telegram Bulk for Windows x64." run'
+        required: true
+  workflow_run:
+    workflows: ["Telegram Bulk for Windows x64."]
+    types: [completed]
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    name: Publish
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RUN_ID: ${{ inputs.run_id || github.event.workflow_run.id }}
+    steps:
+      - name: Download the build.
+        run: |
+          gh run download "$RUN_ID" -R "$GITHUB_REPOSITORY" -n Telegram-Bulk-win64 -D build
+          ls -la build
+
+      - name: Pack.
+        run: |
+          cd build
+          zip -9 ../Telegram-Bulk-win64.zip Telegram.exe README.md SHA256SUMS.txt BUILD-INFO.txt
+          cd ..
+          ls -la Telegram-Bulk-win64.zip
+
+      - name: Publish a draft release.
+        run: |
+          TAG=bulk-build-$RUN_ID
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY" > /dev/null 2>&1 && gh release delete "$TAG" -R "$GITHUB_REPOSITORY" --yes
+          gh release create "$TAG" -R "$GITHUB_REPOSITORY" \
+            --draft \
+            --title "Telegram Bulk for Windows x64 (build $RUN_ID)" \
+            --notes-file build/README.md \
+            Telegram-Bulk-win64.zip

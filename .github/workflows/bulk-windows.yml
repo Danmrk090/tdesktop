@@ -20,6 +20,7 @@ on:
       - bulk-download
     paths-ignore:
       - '**.md'
+      - '.github/workflows/bulk-release.yml'
 
 concurrency:
   group: bulk-windows-${{ github.ref }}
