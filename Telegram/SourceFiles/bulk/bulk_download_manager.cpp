@@ -60,7 +60,9 @@ constexpr auto kMaxWaits = 30;
 constexpr auto kWaitTimeout = crl::time(10000);
 constexpr auto kBusyTimeout = crl::time(2000);
 constexpr auto kSaveDelay = crl::time(3000);
-constexpr auto kIndexSaveDelay = crl::time(10000);
+constexpr auto kSaveDelayLarge = crl::time(30000);
+constexpr auto kLargeStateEntries = 5000;
+constexpr auto kIndexSaveDelay = crl::time(60000);
 constexpr auto kSpeedInterval = crl::time(1000);
 constexpr auto kSpeedSamples = 5;
 constexpr auto kDiskCheckInterval = crl::time(30000);
@@ -1722,9 +1724,17 @@ void Manager::changed(bool structure) {
 }
 
 void Manager::saveLater() {
-	if (!_saveTimer.isActive()) {
-		_saveTimer.callOnce(kSaveDelay);
+	if (_saveTimer.isActive()) {
+		return;
 	}
+	// Big lists take a while to write, don't do that too often.
+	auto entries = 0;
+	for (const auto &job : _jobs) {
+		entries += int(job->entries.size());
+	}
+	_saveTimer.callOnce((entries > kLargeStateEntries)
+		? kSaveDelayLarge
+		: kSaveDelay);
 }
 
 QString Manager::jobsPath() const {
