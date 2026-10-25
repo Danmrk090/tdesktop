@@ -280,6 +280,11 @@ private:
 	void selectAllShown();
 	[[nodiscard]] bool canSelectUpTo(not_null<const HistoryItem*> item) const;
 	void selectUpTo(not_null<const HistoryItem*> item);
+	[[nodiscard]] bool isSharedMediaList() const;
+	void addBulkMenuActions();
+	void jumpToDate();
+	void selectByFilter();
+	void exportListCsv();
 	void forwardItem(GlobalMsgId globalId);
 	void forwardItems(MessageIdsList &&items);
 	void deleteSelected();

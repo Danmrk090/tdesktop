@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "window/window_session_controller.h"
 
+#include "bulk/bulk_download_manager.h"
 #include "apiwrap.h"
 #include "api/api_cloud_password.h"
 #include "api/api_text_entities.h"
@@ -1618,6 +1619,9 @@ SessionController::SessionController(
 	if (_isPrimary) {
 		crl::on_main(base::make_weak(this), [=] {
 			Theme::CheckChatThemeWallPaper(this);
+		});
+		crl::on_main(base::make_weak(this), [=] {
+			Bulk::OnSessionWindow(this);
 		});
 	}
 	style::PaletteChanged(

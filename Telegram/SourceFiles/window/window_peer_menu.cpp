@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "window/window_peer_menu.h"
 
+#include "bulk/bulk_boxes.h"
+#include "bulk/bulk_upload.h"
 #include "base/call_delayed.h"
 #include "menu/menu_check_item.h"
 #include "menu/menu_mark_as_read.h"
@@ -330,6 +332,7 @@ private:
 	void addDirectMessages();
 	void addToggleTopicClosed();
 	void addExportChat();
+	void addBulkActions();
 	void addTranslate();
 	void addReport();
 	void addNewContact();
@@ -1078,6 +1081,34 @@ void Filler::addExportChat() {
 		tr::lng_profile_export_chat(tr::now),
 		[=] { PeerMenuExportChat(navigation, peer); },
 		&st::menuIconExport);
+}
+
+void Filler::addBulkActions() {
+	if (!_peer || !_thread || _sublist) {
+		return;
+	}
+	const auto peer = _peer;
+	const auto controller = _controller;
+	const auto topic = _thread->asTopic();
+	const auto topicRootId = topic ? topic->rootId() : MsgId();
+	if (peer->allowsForwarding()) {
+		_addAction(
+			tr::lng_bulk_all_menu(tr::now),
+			[=] { Bulk::ShowDownloadAllBox(controller, peer, topicRootId); },
+			&st::menuIconDownload);
+		if (!topic) {
+			_addAction(
+				tr::lng_bulk_autosave_menu(tr::now),
+				[=] { Bulk::ShowAutoSaveBox(controller, peer); },
+				&st::menuIconSchedule);
+		}
+	}
+	if (!topic && Bulk::CanUploadTo(peer)) {
+		_addAction(
+			tr::lng_bulk_upload_menu(tr::now),
+			[=] { Bulk::ShowUploadFolderBox(controller, peer); },
+			&st::menuIconSend);
+	}
 }
 
 void Filler::addTranslate() {
@@ -1950,6 +1981,7 @@ void Filler::fillHistoryActions() {
 	addViewDiscussion();
 	addDirectMessages();
 	addExportChat();
+	addBulkActions();
 	addTranslate();
 	addReport();
 	addClearHistory();
@@ -1977,6 +2009,7 @@ void Filler::fillProfileActions() {
 	addViewDiscussion();
 	addDirectMessages();
 	addExportChat();
+	addBulkActions();
 	addToggleNoForwards();
 	addToggleFolder();
 	addBlockUser();

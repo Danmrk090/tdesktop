@@ -343,7 +343,10 @@ jobs:
           -D TDESKTOP_API_ID=%CLEAN_API_ID% ^
           -D TDESKTOP_API_HASH=%CLEAN_API_HASH% ^
           -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON ^
-          -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON > %TBUILD%\telegram.log 2>&1
+          -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON ^
+          -D TDESKTOP_BULK_BUILD_SHA=%GITHUB_SHA% ^
+          -D TDESKTOP_BULK_BUILD_RUN=%GITHUB_RUN_NUMBER% ^
+          -D TDESKTOP_BULK_REPO=%GITHUB_REPOSITORY% > %TBUILD%\telegram.log 2>&1
           set RESULT=%errorlevel%
           if %RESULT% neq 0 (
             powershell -NoProfile -Command "Get-Content -Tail 300 $env:TBUILD\telegram.log"

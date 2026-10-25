@@ -177,6 +177,13 @@ public:
 	virtual void setSearchQuery(QString query) = 0;
 	virtual void jumpToMessage(MsgId messageId, Fn<void(FullMsgId)>) = 0;
 
+	// Loads the whole list instead of a few screens around the view.
+	[[nodiscard]] virtual bool canLoadAll() const {
+		return false;
+	}
+	virtual void loadAll() {
+	}
+
 	[[nodiscard]] virtual bool anchorWhileAtTop() {
 		return false;
 	}

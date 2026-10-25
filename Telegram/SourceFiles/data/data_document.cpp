@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "data/data_document.h"
 
+#include "bulk/bulk_download_manager.h"
+
 #include "data/data_document_resolver.h"
 #include "data/data_session.h"
 #include "data/data_streaming.h"
@@ -1332,7 +1334,9 @@ void DocumentData::handleLoaderUpdates() {
 		_owner->documentLoadProgress(this);
 	}, [=](FileLoader::Error error) {
 		using FailureReason = FileLoader::FailureReason;
-		if (error.started && _loader) {
+		if (Bulk::IsManagedDownload(this)) {
+			// Bulk downloads retry and report failures themselves.
+		} else if (error.started && _loader) {
 			const auto origin = _loader->fileOrigin();
 			const auto failedFileName = _loader->fileName();
 			const auto retry = [=] {

@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "data/data_document_resolver.h"
 
+#include "bulk/bulk_file_guard.h"
 #include "base/platform/base_platform_info.h"
 #include "boxes/abstract_box.h" // Ui::show().
 #include "chat_helpers/ttl_media_layer_widget.h"
@@ -35,6 +36,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_layers.h"
 
 #include <QtCore/QBuffer>
+#include <QtCore/QFileInfo>
 #include <QtCore/QMimeType>
 #include <QtCore/QMimeDatabase>
 
@@ -83,10 +85,11 @@ void LaunchWithWarning(
 	const auto isIpReveal = (nameType != Core::NameType::Executable)
 		&& Core::IsIpRevealingPath(name);
 	const auto extension = Core::FileExtension(name).toLower();
+	const auto disguise = Bulk::CheckDisguise(QFileInfo(name).fileName());
 
 	auto &app = Core::App();
 	auto &settings = app.settings();
-	const auto warn = LauncherWouldWarn(
+	const auto warn = disguise.disguised || LauncherWouldWarn(
 		settings,
 		nameType,
 		isIpReveal,
@@ -109,7 +112,7 @@ void LaunchWithWarning(
 		return;
 	}
 	const auto callback = [=, &app, &settings](bool checked) {
-		if (checked) {
+		if (checked && !disguise.disguised) {
 			if (isIpReveal) {
 				settings.setIpRevealWarning(false);
 			} else {
@@ -129,8 +132,28 @@ void LaunchWithWarning(
 				lt_extension,
 				rpl::single(tr::bold('.' + extension)),
 				tr::marked);
+	if (disguise.disguised) {
+		// The name hides its real type, always ask and show the truth.
+		auto warning = tr::lng_bulk_guard_disguised(
+			tr::now,
+			lt_name,
+			TextWithEntities{ disguise.visibleName },
+			lt_extension,
+			tr::bold(disguise.realExtension.isEmpty()
+				? tr::lng_bulk_guard_no_extension(tr::now)
+				: ('.' + disguise.realExtension.toUpper())),
+			tr::marked);
+		text = rpl::combine(
+			std::move(text),
+			rpl::single(std::move(warning))
+		) | rpl::map([](TextWithEntities usual, TextWithEntities extra) {
+			return extra.append(u"\n\n"_q).append(std::move(usual));
+		});
+	}
 	auto check = (isIpReveal
 		? tr::lng_launch_exe_dont_ask
+		: disguise.disguised
+		? tr::lng_bulk_guard_no_remember
 		: tr::lng_launch_dont_ask)();
 	auto confirm = ((nameType == Core::NameType::Executable)
 		? tr::lng_launch_exe_sure

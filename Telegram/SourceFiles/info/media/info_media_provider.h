@@ -39,6 +39,8 @@ public:
 		bool preloadTop,
 		bool preloadBottom) override;
 	void refreshViewer() override;
+	[[nodiscard]] bool canLoadAll() const override;
+	void loadAll() override;
 	rpl::producer<> refreshed() override;
 
 	std::vector<ListSection> fillSections(
@@ -119,6 +121,7 @@ private:
 
 	UniversalMsgId _universalAroundId = kDefaultAroundId;
 	int _idsLimit = kMinimalIdsLimit;
+	bool _loadAll = false;
 	SparseIdsMergedSlice _slice;
 
 	std::unordered_map<UniversalMsgId, CachedItem> _layouts;

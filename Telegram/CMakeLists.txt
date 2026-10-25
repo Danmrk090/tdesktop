@@ -480,6 +480,20 @@ PRIVATE
     calls/group/calls_group_viewport_tile.h
     calls/group/calls_volume_item.cpp
     calls/group/calls_volume_item.h
+    bulk/bulk_boxes.cpp
+    bulk/bulk_boxes.h
+    bulk/bulk_download_manager.cpp
+    bulk/bulk_download_manager.h
+    bulk/bulk_file_guard.cpp
+    bulk/bulk_file_guard.h
+    bulk/bulk_metadata.cpp
+    bulk/bulk_metadata.h
+    bulk/bulk_settings.cpp
+    bulk/bulk_settings.h
+    bulk/bulk_update_check.cpp
+    bulk/bulk_update_check.h
+    bulk/bulk_upload.cpp
+    bulk/bulk_upload.h
     calls/calls_box_controller.cpp
     calls/calls_box_controller.h
     calls/calls_call.cpp
@@ -2729,6 +2743,16 @@ PRIVATE
     TDESKTOP_API_HASH=${TDESKTOP_API_HASH}
     G_LOG_DOMAIN="Telegram"
 )
+
+# Build information for the update check of the bulk download build.
+if (TDESKTOP_BULK_BUILD_SHA)
+    target_compile_definitions(Telegram
+    PRIVATE
+        TDESKTOP_BULK_BUILD_SHA=${TDESKTOP_BULK_BUILD_SHA}
+        TDESKTOP_BULK_BUILD_RUN=${TDESKTOP_BULK_BUILD_RUN}
+        TDESKTOP_BULK_REPO=${TDESKTOP_BULK_REPO}
+    )
+endif()
 
 get_property(is_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 if (APPLE

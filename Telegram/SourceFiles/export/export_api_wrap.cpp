@@ -26,6 +26,11 @@ constexpr auto kUserpicsSliceLimit = 100;
 // and 8 of them in flight stay below what the regular downloader uses.
 constexpr auto kFileChunkSize = 512 * 1024;
 constexpr auto kFileRequestsCount = 8;
+
+// Small files are requested several at a time, each in one request.
+constexpr auto kPrefetchMaxSize = 1024 * 1024;
+constexpr auto kPrefetchParallel = 6;
+constexpr auto kPrefetchAhead = 24;
 constexpr auto kChatsSliceLimit = 100;
 constexpr auto kMessagesSliceLimit = 100;
 constexpr auto kTopPeerSliceLimit = 100;
@@ -1880,6 +1885,7 @@ void ApiWrap::skipFile(uint64 randomId) {
 }
 
 void ApiWrap::cancelExportFast() {
+	cancelPrefetch();
 	if (_takeoutId.has_value()) {
 		const auto requestId = mainRequest(MTPaccount_FinishTakeoutSession(
 			MTP_flags(0)
@@ -2729,6 +2735,8 @@ void ApiWrap::loadNextMessageFile() {
 
 	auto &process = *_chatProcess;
 	auto &list = process.slice->list;
+	_prefetchWaiting = false;
+	prefetchMessageFiles();
 	while (process.fileIndex < list.size()) {
 		const auto index = process.fileIndex;
 		auto &message = list[index];
@@ -2751,6 +2759,11 @@ void ApiWrap::loadNextMessageFile() {
 				process.messageFileWorkIndex];
 			const auto target = work.file;
 			Expects(target != nullptr);
+			if (_prefetchRequests.contains(target)) {
+				// Continue when this small file arrives.
+				_prefetchWaiting = true;
+				return;
+			}
 			auto origin = currentFileMessageOrigin();
 			origin.richMessage = work.rich;
 			const auto policy = FilePolicy{
@@ -2783,12 +2796,120 @@ void ApiWrap::loadNextMessageFile() {
 	finishMessagesSlice();
 }
 
+void ApiWrap::prefetchMessageFiles() {
+	if (!_chatProcess
+		|| !_chatProcess->slice
+		|| !_takeoutId
+		|| !_settings) {
+		return;
+	}
+	auto &process = *_chatProcess;
+	auto &list = process.slice->list;
+	const auto till = std::min(
+		int(list.size()),
+		process.fileIndex + kPrefetchAhead);
+	for (auto i = process.fileIndex; i < till; ++i) {
+		if (int(_prefetchRequests.size()) >= kPrefetchParallel) {
+			return;
+		}
+		auto &message = list[i];
+		if (Data::SkipMessageByDate(message, *_settings)) {
+			continue;
+		}
+		auto file = (Data::File*)nullptr;
+		auto type = MediaSettings::Type();
+		v::match(message.media.content, [&](Data::Photo &photo) {
+			file = &photo.image.file;
+			type = MediaSettings::Type::Photo;
+		}, [&](Data::Document &document) {
+			file = &document.file;
+			type = DocumentMediaType(document);
+		}, [](auto &) {});
+		if (!file
+			|| !file->relativePath.isEmpty()
+			|| file->skipReason != Data::File::SkipReason::None
+			|| !file->content.isEmpty()
+			|| !file->location
+			|| file->size <= 0
+			|| file->size > kPrefetchMaxSize
+			|| file->size > _settings->media.sizeLimit
+			|| (_settings->media.types & type) != type
+			|| _prefetchRequests.contains(file)
+			|| _prefetchDone.contains(file)
+			|| _fileCache->find(file->location)) {
+			continue;
+		}
+		prefetchFile(file);
+	}
+}
+
+void ApiWrap::prefetchFile(not_null<Data::File*> file) {
+	Expects(_takeoutId.has_value());
+
+	const auto generation = _prefetchGeneration;
+	const auto location = file->location;
+	const auto requestId = _mtp.request(MTPInvokeWithTakeout<MTPupload_GetFile>(
+		MTP_long(*_takeoutId),
+		MTPupload_GetFile(
+			MTP_flags(0),
+			location.data,
+			MTP_long(0),
+			MTP_int(kPrefetchMaxSize))
+	)).done([=](const MTPupload_File &result) {
+		auto bytes = QByteArray();
+		result.match([&](const MTPDupload_file &data) {
+			bytes = data.vbytes().v;
+		}, [](const MTPDupload_fileCdnRedirect &) {
+		});
+		prefetchFinished(generation, file, std::move(bytes));
+	}).fail([=](const MTP::Error &error) {
+		// The usual loading will handle the error.
+		prefetchFinished(generation, file, QByteArray());
+	}).toDC(MTP::ShiftDcId(
+		location.dcId,
+		MTP::kExportMediaDcShift)).send();
+	_prefetchRequests.emplace(file, requestId);
+}
+
+void ApiWrap::prefetchFinished(
+		uint64 generation,
+		not_null<Data::File*> file,
+		QByteArray bytes) {
+	if (generation != _prefetchGeneration) {
+		return;
+	}
+	_prefetchRequests.remove(file);
+	_prefetchDone.emplace(file);
+	if (bytes.size() == file->size
+		&& file->content.isEmpty()
+		&& file->relativePath.isEmpty()) {
+		file->content = std::move(bytes);
+	}
+	if (_prefetchWaiting && !_fileProcess) {
+		_prefetchWaiting = false;
+		loadNextMessageFile();
+	} else {
+		prefetchMessageFiles();
+	}
+}
+
+void ApiWrap::cancelPrefetch() {
+	++_prefetchGeneration;
+	for (const auto &[file, requestId] : base::take(_prefetchRequests)) {
+		_mtp.request(requestId).cancel();
+	}
+	_prefetchDone.clear();
+	_prefetchWaiting = false;
+}
+
 void ApiWrap::finishMessagesSlice() {
 	Expects(_chatProcess != nullptr);
 	Expects(_chatProcess->slice.has_value());
 	Expects(_chatProcess->messageFileWork.empty());
 	Expects(_chatProcess->messageFileWorkIndex == 0);
 	Expects(_chatProcess->messageFileWorkMessageIndex < 0);
+
+	cancelPrefetch();
 
 	auto slice = *base::take(_chatProcess->slice);
 	if (!slice.list.empty()) {

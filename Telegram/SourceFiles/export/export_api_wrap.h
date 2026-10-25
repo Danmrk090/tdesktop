@@ -234,6 +234,13 @@ private:
 		AbstractMessagesProcess &process,
 		Data::Message &message);
 	void loadNextMessageFile();
+	void prefetchMessageFiles();
+	void prefetchFile(not_null<Data::File*> file);
+	void prefetchFinished(
+		uint64 generation,
+		not_null<Data::File*> file,
+		QByteArray bytes);
+	void cancelPrefetch();
 	[[nodiscard]] std::optional<QByteArray> getCustomEmoji(
 		Data::Message &message,
 		QByteArray &data);
@@ -352,6 +359,10 @@ private:
 	std::unique_ptr<DialogsProcess> _dialogsProcess;
 	std::unique_ptr<ChatProcess> _chatProcess;
 	std::unique_ptr<TopicProcess> _topicProcess;
+	base::flat_map<not_null<Data::File*>, mtpRequestId> _prefetchRequests;
+	base::flat_set<not_null<Data::File*>> _prefetchDone;
+	uint64 _prefetchGeneration = 0;
+	bool _prefetchWaiting = false;
 	base::flat_set<uint64> _unresolvedCustomEmoji;
 	base::flat_map<uint64, Data::Document> _resolvedCustomEmoji;
 	QVector<MTPMessageRange> _splits;

@@ -368,6 +368,8 @@ private:
 
 	QString _duration;
 	int _durationw = 0;
+	QString _durationSize;
+	int _durationSizew = 0;
 	std::unique_ptr<Ui::SpoilerAnimation> _spoiler;
 
 	uint32 _goodRequestId = 0;

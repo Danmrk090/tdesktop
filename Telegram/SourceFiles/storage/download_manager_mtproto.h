@@ -127,6 +127,7 @@ private:
 	void checkSendNext(MTP::DcId dcId, Queue &queue);
 	bool trySendNextPart(MTP::DcId dcId, Queue &queue);
 
+	[[nodiscard]] bool speedLimitAllows();
 	void killSessionsSchedule(MTP::DcId dcId);
 	void killSessionsCancel(MTP::DcId dcId);
 	void killSessions();
@@ -148,6 +149,9 @@ private:
 	base::Timer _killSessionsTimer;
 
 	base::flat_map<MTP::DcId, Queue> _queues;
+	base::Timer _limitTimer;
+	crl::time _limitLast = 0;
+	int64 _limitTokens = 0;
 	int64 _receivedBytes = 0;
 	int _premiumDelays = 0;
 	rpl::lifetime _lifetime;

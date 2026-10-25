@@ -206,7 +206,20 @@ void Provider::restart() {
 	_layouts.clear();
 	_universalAroundId = kDefaultAroundId;
 	_idsLimit = kMinimalIdsLimit;
+	_loadAll = false;
 	_slice = SparseIdsMergedSlice(sliceKey(_universalAroundId));
+	refreshViewer();
+}
+
+bool Provider::canLoadAll() const {
+	return !_loadAll;
+}
+
+void Provider::loadAll() {
+	// The viewer keeps requesting slices until the limits are reached.
+	constexpr auto kLoadAllLimit = 50000;
+	_loadAll = true;
+	_idsLimit = kLoadAllLimit;
 	refreshViewer();
 }
 
@@ -216,6 +229,9 @@ void Provider::checkPreload(
 		not_null<BaseLayout*> bottomLayout,
 		bool preloadTop,
 		bool preloadBottom) {
+	if (_loadAll) {
+		return;
+	}
 	const auto visibleWidth = viewport.width();
 	const auto visibleHeight = viewport.height();
 	const auto preloadedHeight = kPreloadedScreensCountFull * visibleHeight;
@@ -383,7 +399,9 @@ void Provider::jumpToMessage(
 		if (callback) {
 			callback(fullId);
 		}
-		_idsLimit = kMinimalIdsLimit * 2;
+		if (!_loadAll) {
+			_idsLimit = kMinimalIdsLimit * 2;
+		}
 		refreshViewer();
 	};
 

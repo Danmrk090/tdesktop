@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "storage/download_manager_mtproto.h"
 
+#include "bulk/bulk_settings.h"
 #include "mtproto/facade.h"
 #include "mtproto/mtproto_auth_key.h"
 #include "mtproto/mtproto_response.h"
@@ -122,7 +123,8 @@ DownloadManagerMtproto::DcBalanceData::DcBalanceData()
 DownloadManagerMtproto::DownloadManagerMtproto(not_null<ApiWrap*> api)
 : _api(api)
 , _resetGenerationTimer([=] { resetGeneration(); })
-, _killSessionsTimer([=] { killSessions(); }) {
+, _killSessionsTimer([=] { killSessions(); })
+, _limitTimer([=] { checkSendNext(); }) {
 	_api->instance().restartsByTimeout(
 	) | rpl::filter([](MTP::ShiftedDcId shiftedDcId) {
 		return MTP::isDownloadDcId(shiftedDcId);
@@ -200,7 +202,33 @@ void DownloadManagerMtproto::checkSendNextAfterSuccess(MTP::DcId dcId) {
 	checkSendNext(dcId, _queues[dcId]);
 }
 
+bool DownloadManagerMtproto::speedLimitAllows() {
+	const auto limit = Bulk::SpeedLimitBytesPerSecond();
+	if (limit <= 0) {
+		_limitLast = 0;
+		return true;
+	}
+	const auto now = crl::now();
+	if (!_limitLast) {
+		_limitTokens = limit;
+	} else {
+		_limitTokens = std::min(
+			_limitTokens + (now - _limitLast) * limit / 1000,
+			limit);
+	}
+	_limitLast = now;
+	if (_limitTokens > 0) {
+		return true;
+	} else if (!_limitTimer.isActive()) {
+		_limitTimer.callOnce(((-_limitTokens) * 1000 / limit) + 10);
+	}
+	return false;
+}
+
 bool DownloadManagerMtproto::trySendNextPart(MTP::DcId dcId, Queue &queue) {
+	if (queue.empty() || !speedLimitAllows()) {
+		return false;
+	}
 	const auto &balanceData = _balanceData[dcId];
 	const auto &sessions = balanceData.sessions;
 	const auto bestIndex = [&] {
@@ -234,6 +262,9 @@ int DownloadManagerMtproto::changeRequestedAmount(
 	Assert(index < i->second.sessions.size());
 	const auto result = (i->second.sessions[index].requested += delta);
 	i->second.totalRequested += delta;
+	if (delta > 0 && _limitLast) {
+		_limitTokens -= delta;
+	}
 	const auto findNonEmptySession = [](const DcBalanceData &data) {
 		using namespace rpl::mappers;
 		return ranges::find_if(

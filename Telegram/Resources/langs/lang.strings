@@ -9340,5 +9340,194 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "lng_bulk_download_started#other" = "Downloading {count} files. Files appear in Downloads as they finish.";
 "lng_bulk_download_result" = "Bulk download: {photos} photos saved, {files} files sent to Downloads, {skipped} already in the folder, {failed} failed.";
 "lng_bulk_download_open_folder" = "Open folder";
+"lng_bulk_download_nothing_filtered" = "No files match these filters.";
+
+"lng_bulk_manager_menu" = "Bulk downloads";
+"lng_bulk_manager_title" = "Bulk downloads";
+"lng_bulk_manager_empty" = "Nothing here yet. Select files in a chat or in a media tab and choose Download, or use «Download all media» in the chat menu.";
+"lng_bulk_open_manager" = "Show progress";
+"lng_bulk_resuming#one" = "Continuing {count} unfinished bulk download.";
+"lng_bulk_resuming#other" = "Continuing {count} unfinished bulk downloads.";
+"lng_bulk_settings" = "Settings";
+"lng_bulk_clear_finished" = "Clear finished";
+"lng_bulk_pause" = "Pause";
+"lng_bulk_resume" = "Resume";
+"lng_bulk_remove" = "Remove from list";
+"lng_bulk_retry_all" = "Retry all";
+"lng_bulk_yes" = "yes";
+"lng_bulk_no" = "no";
+
+"lng_bulk_job_title#one" = "{count} file from {chat}";
+"lng_bulk_job_title#other" = "{count} files from {chat}";
+"lng_bulk_job_title_files#one" = "{count} file";
+"lng_bulk_job_title_files#other" = "{count} files";
+"lng_bulk_job_finished" = "{title}: finished. {done} saved, {skipped} skipped, {failed} failed.";
+
+"lng_bulk_status_files" = "{ready} of {total} files";
+"lng_bulk_status_bytes" = "{ready} of {total}";
+"lng_bulk_status_scanning" = "Looking through the chat: {checked} checked, {found} found";
+"lng_bulk_status_scan_error" = "Could not finish looking through the chat ({error})";
+"lng_bulk_status_autosave" = "Saving new files automatically";
+"lng_bulk_status_schedule" = "Waiting for the download hours ({hours})";
+"lng_bulk_status_paused" = "Paused";
+"lng_bulk_status_low_disk" = "Paused: not enough free disk space";
+"lng_bulk_status_cancelled" = "Cancelled";
+"lng_bulk_status_finished" = "Finished: {done} saved, {skipped} skipped, {failed} failed";
+"lng_bulk_status_failed#one" = "{count} failed";
+"lng_bulk_status_failed#other" = "{count} failed";
+"lng_bulk_speed_value" = "{size}/s";
+"lng_bulk_eta_seconds#one" = "{count} second left";
+"lng_bulk_eta_seconds#other" = "{count} seconds left";
+"lng_bulk_eta_minutes#one" = "{count} minute left";
+"lng_bulk_eta_minutes#other" = "{count} minutes left";
+"lng_bulk_eta_hours" = "{hours}:{minutes} hours left";
+
+"lng_bulk_panel_title" = "Connection and speed";
+"lng_bulk_panel_speed" = "Speed: {speed} · Connections: {connections} · Parts in progress: {requests} ({size})";
+"lng_bulk_panel_state" = "Telegram Premium: {premium} · Speed limit: {limit} · Files waiting: {queued}";
+"lng_bulk_panel_no_limit" = "none";
+"lng_bulk_panel_schedule" = "Bulk downloads run only between {hours}.";
+"lng_bulk_panel_throttled#one" = "Telegram slowed downloads down {count} time because this account has no Premium.";
+"lng_bulk_panel_throttled#other" = "Telegram slowed downloads down {count} times because this account has no Premium.";
+
+"lng_bulk_failed_link#one" = "{count} failed…";
+"lng_bulk_failed_link#other" = "{count} failed…";
+"lng_bulk_failed_title" = "Failed files";
+"lng_bulk_failed_message" = "Message {id}";
+"lng_bulk_failed_more#one" = "And {count} more.";
+"lng_bulk_failed_more#other" = "And {count} more.";
+"lng_bulk_failed_none" = "No failed files.";
+
+"lng_bulk_error_unavailable" = "The file is not available or saving it is not allowed.";
+"lng_bulk_error_chat" = "The chat is not available.";
+"lng_bulk_error_deleted" = "The message was deleted.";
+"lng_bulk_error_name" = "Could not choose a file name in the folder.";
+"lng_bulk_error_exists" = "Already in the folder.";
+"lng_bulk_error_downloaded" = "Already downloaded: {path}";
+"lng_bulk_error_failed" = "Download failed.";
+"lng_bulk_error_cancelled" = "Cancelled.";
+"lng_bulk_error_size" = "Incomplete file: {ready} of {total}.";
+"lng_bulk_low_disk" = "Bulk download paused: only {size} free on the disk. It continues when there is enough space again.";
+
+"lng_bulk_section_folder" = "Folder";
+"lng_bulk_section_names" = "File names";
+"lng_bulk_section_order" = "Order";
+"lng_bulk_section_filters" = "Filters";
+"lng_bulk_section_type" = "What to download";
+"lng_bulk_section_speed" = "Speed";
+"lng_bulk_section_files" = "Files";
+"lng_bulk_section_privacy" = "Privacy and updates";
+"lng_bulk_order_oldest" = "Oldest first";
+"lng_bulk_order_newest" = "Newest first";
+"lng_bulk_order_smallest" = "Smallest first";
+"lng_bulk_order_largest" = "Largest first";
+"lng_bulk_disk_free" = "Free on this disk: {size}.";
+"lng_bulk_disk_needed" = "Needed: about {size}.";
+"lng_bulk_disk_not_enough" = "There is not enough free space for all the files.";
+
+"lng_bulk_kind_photos" = "Photos";
+"lng_bulk_kind_videos" = "Videos";
+"lng_bulk_kind_files" = "Files";
+"lng_bulk_kind_music" = "Music";
+"lng_bulk_kind_voice" = "Voice and video messages";
+"lng_bulk_kind_gifs" = "GIFs";
+"lng_bulk_kind_round" = "Video messages";
+"lng_bulk_scan_photo_video" = "Photos and videos";
+
+"lng_bulk_filter_title" = "Select by filter";
+"lng_bulk_filter_about" = "Selects the matching files that are loaded in this list. Use «Load all» first to include the whole chat.";
+"lng_bulk_filter_select" = "Select";
+"lng_bulk_filter_min_size" = "Minimum size, MB (empty for no limit)";
+"lng_bulk_filter_max_size" = "Maximum size, MB (empty for no limit)";
+"lng_bulk_filter_extensions" = "Only these types, for example: mp4, pdf";
+"lng_bulk_filter_from" = "From: {date}";
+"lng_bulk_filter_till" = "Till: {date}";
+"lng_bulk_filter_not_downloaded" = "Only files I have not downloaded yet";
+"lng_bulk_filter_selected#one" = "{count} file selected.";
+"lng_bulk_filter_selected#other" = "{count} files selected.";
+"lng_bulk_filter_none" = "No loaded files match. Try «Load all» first.";
+"lng_bulk_date_any" = "Any date";
+
+"lng_bulk_all_menu" = "Download all media…";
+"lng_bulk_all_title" = "Download all";
+"lng_bulk_all_about" = "Downloads every file of the chosen type from {chat}, without selecting them one by one. The files are found in the background and download while the search continues.";
+"lng_bulk_all_job_title" = "{type} from {chat}";
+"lng_bulk_all_started" = "Looking for files in the chat. Downloads start right away.";
+"lng_bulk_all_protected" = "Saving files from this chat is not allowed.";
+"lng_bulk_load_all" = "Load all";
+"lng_bulk_load_all_started" = "Loading the whole list, this can take a minute for big chats.";
+"lng_bulk_jump_date" = "Jump to date…";
+"lng_bulk_select_filter" = "Select by filter…";
+
+"lng_bulk_csv_menu" = "Export list as CSV…";
+"lng_bulk_csv_title" = "Save the list of files";
+"lng_bulk_csv_done#one" = "Saved a list of {count} file.";
+"lng_bulk_csv_done#other" = "Saved a list of {count} files.";
+"lng_bulk_csv_failed" = "Could not save the list.";
+
+"lng_bulk_autosave_menu" = "Auto-save new files…";
+"lng_bulk_autosave_box_title" = "Auto-save new files";
+"lng_bulk_autosave_about" = "New files posted in {chat} are saved to the folder automatically while Telegram is open.";
+"lng_bulk_autosave_title" = "Auto-save: {chat}";
+"lng_bulk_autosave_on" = "New files from {chat} will be saved automatically.";
+"lng_bulk_autosave_off" = "Auto-save is off for this chat.";
+"lng_bulk_autosave_turn_off" = "Turn off";
+
+"lng_bulk_upload_menu" = "Upload a folder…";
+"lng_bulk_upload_title" = "Upload a folder";
+"lng_bulk_upload_choose" = "Choose folder";
+"lng_bulk_upload_choose_about" = "Choose a folder: all its files are sent as albums of up to 10, one album after another.";
+"lng_bulk_upload_about#one" = "{path}: {count} file, {size}, {albums} albums.";
+"lng_bulk_upload_about#other" = "{path}: {count} files, {size}, {albums} albums.";
+"lng_bulk_upload_subfolders" = "Include subfolders";
+"lng_bulk_upload_compress" = "Send photos compressed (uncheck to send originals as files)";
+"lng_bulk_upload_start" = "Upload";
+"lng_bulk_upload_started" = "Uploading the folder. You can follow it in the chat and in Bulk downloads.";
+"lng_bulk_upload_busy" = "Another folder is being uploaded, wait for it to finish.";
+"lng_bulk_upload_cant" = "You can't send files to this chat.";
+"lng_bulk_upload_done#one" = "Uploaded {count} file to {chat}. Skipped or failed: {skipped}.";
+"lng_bulk_upload_done#other" = "Uploaded {count} files to {chat}. Skipped or failed: {skipped}.";
+"lng_bulk_upload_unfinished" = "The upload of {path} to {chat} did not finish: {sent} of {total} files were sent. Continue it?";
+"lng_bulk_upload_continue" = "Continue";
+"lng_bulk_upload_discard" = "Discard";
+"lng_bulk_upload_stop" = "Stop";
+"lng_bulk_upload_row_title" = "Upload to {chat}";
+"lng_bulk_upload_row_status" = "{path}: {sent} of {total} files sent";
+
+"lng_bulk_settings_title" = "Bulk download settings";
+"lng_bulk_settings_parallel" = "Files at the same time (1-8)";
+"lng_bulk_settings_parallel_about" = "3 or 4 is fastest: each file gets the full speed instead of many files sharing it.";
+"lng_bulk_settings_limit" = "Speed limit, MB/s (empty for no limit)";
+"lng_bulk_settings_limit_about" = "Applies to all downloads in this app, so the rest of your internet stays usable.";
+"lng_bulk_settings_schedule" = "Run bulk downloads only during these hours";
+"lng_bulk_settings_from" = "From hour (0-23)";
+"lng_bulk_settings_till" = "Till hour (0-23)";
+"lng_bulk_schedule_hours" = "{from}-{till}";
+"lng_bulk_settings_caption" = "Save each file's caption next to it as a .txt file";
+"lng_bulk_settings_file_date" = "Use the message date as the file date";
+"lng_bulk_settings_checksums" = "Write a SHA256SUMS.txt checksum list when a download finishes";
+"lng_bulk_settings_known" = "Files I downloaded before, in any folder:";
+"lng_bulk_settings_known_skip" = "Skip them";
+"lng_bulk_settings_known_copy" = "Copy them into the new folder";
+"lng_bulk_settings_known_download" = "Download them again";
+"lng_bulk_settings_free_space" = "Keep at least this much free disk space, GB";
+"lng_bulk_settings_free_space_about" = "Bulk downloads pause when the disk gets this full and continue when there is space again.";
+"lng_bulk_settings_strip" = "Remove location, camera and date details from photos and videos I send as files";
+"lng_bulk_settings_badges" = "Show file sizes on video thumbnails";
+"lng_bulk_settings_updates" = "Tell me when a newer build of this app is available";
+"lng_bulk_settings_check_now" = "Check for a newer build now";
+"lng_bulk_settings_build" = "This is build {number} ({commit}).";
+"lng_bulk_settings_build_unknown" = "This build has no version information.";
+"lng_bulk_clear_cache" = "Clear cache";
+"lng_bulk_clear_cache_sure" = "Clear Telegram's media cache? Files you saved to folders stay where they are.";
+
+"lng_bulk_update_available" = "A newer build of your Telegram (build {number}) is available. Open its download page?";
+"lng_bulk_update_open" = "Open page";
+"lng_bulk_update_latest" = "You have the newest build.";
+"lng_bulk_update_failed" = "Could not check for a newer build. Try again later.";
+
+"lng_bulk_guard_disguised" = "Careful: the name «{name}» hides the real file type. The real type is {extension}.";
+"lng_bulk_guard_no_extension" = "a file without an extension";
+"lng_bulk_guard_no_remember" = "I understand";
 
 // Keys finished

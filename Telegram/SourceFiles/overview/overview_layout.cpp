@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "overview/overview_layout.h"
 
+#include "bulk/bulk_settings.h"
 #include "overview/overview_checkbox.h"
 #include "overview/overview_layout_delegate.h"
 #include "core/application.h"
@@ -657,6 +658,10 @@ Video::Video(
 , _videoCover(LookupVideoCover(video, parent))
 , _duration(Ui::FormatDurationText(_data->duration() / 1000))
 , _durationw(st::normalFont->width(_duration))
+, _durationSize(Ui::FormatDurationAndSizeText(
+	_data->duration() / 1000,
+	_data->size))
+, _durationSizew(st::normalFont->width(_durationSize))
 , _spoiler((options.spoiler || parent->isMediaSensitive())
 	? std::make_unique<Ui::SpoilerAnimation>([=] {
 		delegate->repaintItem(this);
@@ -809,12 +814,24 @@ void Video::paint(
 			const auto &icon = download
 				? (selected ? st::overviewVideoDownloadSelected : st::overviewVideoDownload)
 				: (selected ? st::overviewVideoPlaySelected : st::overviewVideoPlay);
-			const auto text = download ? _status.text() : _duration;
-			const auto textw = download
-				? st::normalFont->width(text)
-				: _durationw;
 			const auto margin = st::overviewVideoStatusMargin;
 			const auto padding = st::overviewVideoStatusPadding;
+			const auto withSize = !download
+				&& !_story
+				&& Bulk::Current().sizeBadges
+				&& (_data->size > 0)
+				&& (icon.width() + 3 * padding.x() + _durationSizew
+					<= _width - 2 * margin);
+			const auto text = download
+				? _status.text()
+				: withSize
+				? _durationSize
+				: _duration;
+			const auto textw = download
+				? st::normalFont->width(text)
+				: withSize
+				? _durationSizew
+				: _durationw;
 			const auto statusX = margin + padding.x(), statusY = _height - margin - padding.y() - st::normalFont->height;
 			const auto fullW = icon.width()
 				+ 3 * padding.x()

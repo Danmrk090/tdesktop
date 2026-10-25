@@ -44,6 +44,11 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "window/window_session_controller.h"
 #include "window/window_peer_menu.h"
 #include "menu/menu_item_download_files.h"
+#include "bulk/bulk_boxes.h"
+#include "bulk/bulk_download_manager.h"
+#include "dialogs/dialogs_key.h"
+#include "apiwrap.h"
+#include "base/unixtime.h"
 #include "lang/lang_numbers_animation.h"
 #include "ui/widgets/menu/menu_add_action_callback.h"
 #include "ui/widgets/menu/menu_add_action_callback_factory.h"
@@ -1761,6 +1766,8 @@ void ListWidget::showContextMenu(
 		}
 	}
 
+	addBulkMenuActions();
+
 	if (_contextMenu->empty()) {
 		_contextMenu = nullptr;
 		return;
@@ -1911,6 +1918,153 @@ void ListWidget::selectUpTo(not_null<const HistoryItem*> item) {
 		update();
 		pushSelectedItems();
 	}
+}
+
+bool ListWidget::isSharedMediaList() const {
+	return _controller->peer()
+		&& !_controller->isDownloads()
+		&& !_controller->isGlobalMedia()
+		&& !_controller->musicPeer()
+		&& !_controller->storiesPeer()
+		&& !_controller->sublist()
+		&& !_storiesAddToAlbumId
+		&& !_selectOnClick;
+}
+
+void ListWidget::addBulkMenuActions() {
+	if (!_contextMenu || !isSharedMediaList()) {
+		return;
+	}
+	using Type = Storage::SharedMediaType;
+	const auto peer = _controller->peer();
+	const auto window = _controller->parentController();
+	const auto topic = _controller->topic();
+	const auto topicRootId = topic ? topic->rootId() : MsgId();
+	const auto typeIndex = [&] {
+		switch (_provider->type()) {
+		case Type::PhotoVideo: return 0;
+		case Type::Photo: return 1;
+		case Type::Video: return 2;
+		case Type::File: return 3;
+		case Type::MusicFile: return 4;
+		case Type::VoiceFile:
+		case Type::RoundFile:
+		case Type::RoundVoiceFile: return 5;
+		case Type::GIF: return 6;
+		default: return -1;
+		}
+	}();
+	if (typeIndex < 0) {
+		return;
+	}
+	_contextMenu->addSeparator();
+	if (peer->allowsForwarding()) {
+		_contextMenu->addAction(
+			tr::lng_bulk_all_menu(tr::now),
+			[=] {
+				Bulk::ShowDownloadAllBox(window, peer, topicRootId, typeIndex);
+			},
+			&st::menuIconDownload);
+	}
+	if (_provider->canLoadAll()) {
+		_contextMenu->addAction(
+			tr::lng_bulk_load_all(tr::now),
+			crl::guard(this, [=] {
+				_provider->loadAll();
+				_controller->parentController()->showToast(
+					tr::lng_bulk_load_all_started(tr::now));
+			}),
+			&st::menuIconShowAll);
+	}
+	_contextMenu->addAction(
+		tr::lng_bulk_jump_date(tr::now),
+		crl::guard(this, [=] { jumpToDate(); }),
+		&st::menuIconSchedule);
+	_contextMenu->addAction(
+		tr::lng_bulk_select_filter(tr::now),
+		crl::guard(this, [=] { selectByFilter(); }),
+		&st::menuIconSelect);
+	_contextMenu->addAction(
+		tr::lng_bulk_csv_menu(tr::now),
+		crl::guard(this, [=] { exportListCsv(); }),
+		&st::menuIconExport);
+}
+
+void ListWidget::jumpToDate() {
+	const auto peer = _controller->peer();
+	if (!peer) {
+		return;
+	}
+	const auto window = _controller->parentController();
+	const auto topic = _controller->topic();
+	const auto weak = base::make_weak(this);
+	Bulk::ChooseDate(window, 0, [=](TimeId date) {
+		const auto strong = weak.get();
+		if (!date || !strong) {
+			return;
+		}
+		const auto key = topic
+			? Dialogs::Key(topic)
+			: Dialogs::Key(peer->owner().history(peer));
+		peer->session().api().resolveJumpToDate(
+			key,
+			base::unixtime::parse(date).date(),
+			crl::guard(strong, [=](not_null<PeerData*> found, MsgId id) {
+				if (found == peer && id) {
+					jumpToMessage(id);
+				}
+			}));
+	});
+}
+
+void ListWidget::selectByFilter() {
+	const auto window = _controller->parentController();
+	Bulk::ShowFilterBox(window, crl::guard(this, [=](Bulk::Filters filters) {
+		const auto manager = &Bulk::Get(&_controller->session());
+		if (hasSelectedText()) {
+			clearSelected();
+		}
+		auto changed = false;
+		auto matched = 0;
+		for (const auto &section : _sections) {
+			for (const auto &entry : section.items()) {
+				const auto item = entry->getItem();
+				if (!Bulk::EntryMatches(filters, item, manager)) {
+					continue;
+				}
+				++matched;
+				if (ChangeItemSelection(
+						_selected,
+						item,
+						_provider->computeSelectionData(item, FullSelection),
+						_selectedLimit)) {
+					changed = true;
+				}
+			}
+		}
+		if (changed) {
+			update();
+			pushSelectedItems();
+		}
+		_controller->parentController()->showToast(matched
+			? tr::lng_bulk_filter_selected(
+				tr::now,
+				lt_count,
+				std::min(int(_selected.size()), _selectedLimit))
+			: tr::lng_bulk_filter_none(tr::now));
+	}));
+}
+
+void ListWidget::exportListCsv() {
+	auto ids = collectSelectedIds();
+	if (ids.empty()) {
+		for (const auto &section : _sections) {
+			for (const auto &entry : section.items()) {
+				ids.push_back(entry->getItem()->fullId());
+			}
+		}
+	}
+	Bulk::ExportCsv(_controller->parentController(), ids);
 }
 
 void ListWidget::forwardItem(GlobalMsgId globalId) {

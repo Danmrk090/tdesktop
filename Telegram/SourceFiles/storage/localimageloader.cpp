@@ -7,6 +7,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "storage/localimageloader.h"
 
+#include "bulk/bulk_metadata.h"
+#include "bulk/bulk_settings.h"
+
 #include "api/api_text_entities.h"
 #include "api/api_sending.h"
 #include "data/data_document.h"
@@ -794,6 +797,12 @@ void FileLoadTask::process(ProcessArgs &&args) {
 	auto fullimage = QImage();
 	auto fullimagebytes = QByteArray();
 	auto fullimageformat = QByteArray();
+	if (!_filepath.isEmpty()
+		&& _type == SendMediaType::File
+		&& Bulk::StripMetadataEnabled()) {
+		// Files are sent as is, remove location and camera details.
+		_filepath = Bulk::PrepareStrippedCopy(_filepath);
+	}
 	auto info = _filepath.isEmpty() ? QFileInfo() : QFileInfo(_filepath);
 	if (info.exists()) {
 		if (info.isDir()) {
