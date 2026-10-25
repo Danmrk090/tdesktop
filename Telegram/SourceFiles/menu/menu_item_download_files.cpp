@@ -55,7 +55,7 @@ namespace Menu {
 namespace {
 
 constexpr auto kParallelPhotos = 8; // decoded photos are kept in memory
-constexpr auto kDocumentsPerStep = 25; // per event loop iteration
+constexpr auto kParallelDocuments = 4; // each file gets the full speed
 
 constexpr auto kPhotoCheckInterval = crl::time(1000);
 constexpr auto kPhotoRetryTimeout = crl::time(4000);
@@ -304,7 +304,8 @@ private:
 	};
 
 	void startDocumentsStep();
-	void startDocument(const Entry &entry);
+	void checkDocuments();
+	[[nodiscard]] bool startDocument(const Entry &entry);
 	void pumpPhotos();
 	void checkPhotos();
 	[[nodiscard]] bool savePhoto(const ActivePhoto &active);
@@ -319,6 +320,7 @@ private:
 	std::vector<Entry> _documents;
 	std::deque<Entry> _photos;
 	std::vector<ActivePhoto> _activePhotos;
+	std::vector<not_null<DocumentData*>> _activeDocuments;
 	int _documentsDispatched = 0;
 	base::flat_set<QString> _reserved;
 	base::Timer _photosTimer;
@@ -400,6 +402,13 @@ void BulkDownload::start() {
 	) | rpl::on_next([=] {
 		checkPhotos();
 	}, _lifetime);
+	_session->data().documentLoadProgress(
+	) | rpl::filter([=](not_null<DocumentData*> document) {
+		return !document->loading()
+			&& ranges::contains(_activeDocuments, document);
+	}) | rpl::on_next([=] {
+		checkDocuments();
+	}, _lifetime);
 	_photosTimer.callEach(kPhotoCheckInterval);
 
 	pumpPhotos();
@@ -407,30 +416,42 @@ void BulkDownload::start() {
 }
 
 void BulkDownload::startDocumentsStep() {
-	const auto till = std::min(
-		_documentsDispatched + kDocumentsPerStep,
-		int(_documents.size()));
-	while (_documentsDispatched < till) {
-		startDocument(_documents[_documentsDispatched++]);
+	// Few files at a time: each one gets the full speed and finishes
+	// sooner, instead of all of them crawling together.
+	while (_documentsDispatched < int(_documents.size())
+		&& int(_activeDocuments.size()) < kParallelDocuments) {
+		const auto &entry = _documents[_documentsDispatched++];
+		if (startDocument(entry)) {
+			_activeDocuments.push_back(entry.document);
+		}
 	}
-	if (_documentsDispatched < int(_documents.size())) {
-		crl::on_main(this, [=] {
-			startDocumentsStep();
-		});
-	} else {
-		checkFinished();
+	checkFinished();
+}
+
+void BulkDownload::checkDocuments() {
+	if (_finished) {
+		return;
+	}
+	const auto was = _activeDocuments.size();
+	_activeDocuments.erase(
+		ranges::remove_if(_activeDocuments, [](not_null<DocumentData*> d) {
+			return !d->loading();
+		}),
+		end(_activeDocuments));
+	if (_activeDocuments.size() != was) {
+		startDocumentsStep();
 	}
 }
 
-void BulkDownload::startDocument(const Entry &entry) {
+bool BulkDownload::startDocument(const Entry &entry) {
 	const auto document = entry.document;
 	if (document->isNull() || document->forbidsFileSave()) {
 		++_failed;
-		return;
+		return false;
 	} else if (document->loading()
 		&& !document->loadingFilePath().isEmpty()) {
 		++_documentsStarted;
-		return;
+		return true;
 	}
 	const auto target = ResolveTarget(
 		_folder,
@@ -440,10 +461,10 @@ void BulkDownload::startDocument(const Entry &entry) {
 		_reserved);
 	if (target.path.isEmpty()) {
 		++_failed;
-		return;
+		return false;
 	} else if (target.skip) {
 		++_skippedExisting;
-		return;
+		return false;
 	}
 	document->save(entry.itemId, target.path);
 	_lastPath = target.path;
@@ -455,7 +476,9 @@ void BulkDownload::startDocument(const Entry &entry) {
 				.document = document,
 			});
 		}
+		return true;
 	}
+	return false;
 }
 
 void BulkDownload::pumpPhotos() {
@@ -511,6 +534,7 @@ void BulkDownload::checkPhotos() {
 		}
 	}
 	pumpPhotos();
+	checkDocuments();
 	checkFinished();
 }
 
@@ -555,6 +579,7 @@ bool BulkDownload::savePhoto(const ActivePhoto &active) {
 void BulkDownload::checkFinished() {
 	if (_finished
 		|| _documentsDispatched < int(_documents.size())
+		|| !_activeDocuments.empty()
 		|| !_photos.empty()
 		|| !_activePhotos.empty()) {
 		return;

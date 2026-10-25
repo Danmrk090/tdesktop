@@ -39,6 +39,10 @@ mtpFileLoader::mtpFileLoader(
 	autoLoading,
 	cacheTag)
 , DownloadMtprotoTask(&session->downloader(), location, origin) {
+	if (loadSize == fullSize
+		&& fullSize >= Storage::kDownloadBigPartMinFileSize) {
+		allowBigParts();
+	}
 }
 
 mtpFileLoader::mtpFileLoader(
@@ -138,8 +142,12 @@ int64 mtpFileLoader::takeNextRequestOffset() {
 	Expects(readyToRequest());
 
 	const auto result = _nextRequestOffset;
-	_nextRequestOffset += Storage::kDownloadPartSize;
+	_nextRequestOffset += requestLimitForOffset(result);
 	return result;
+}
+
+int64 mtpFileLoader::knownFileSize() const {
+	return _fullSize;
 }
 
 bool mtpFileLoader::feedPart(int64 offset, const QByteArray &bytes) {

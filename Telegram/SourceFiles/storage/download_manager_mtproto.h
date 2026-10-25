@@ -25,6 +25,21 @@ namespace Storage {
 // fixed part size download for hash checking.
 constexpr auto kDownloadPartSize = 128 * 1024;
 
+// Large files saved to disk use bigger parts while they are not on a CDN.
+// Every bigger part starts at a multiple of its size, so it never crosses
+// a 1 MB block, as upload.getFile requires.
+constexpr auto kDownloadBigPartSize = 512 * 1024;
+constexpr auto kDownloadBigPartMinFileSize = 2 * 1024 * 1024;
+
+struct DownloadStats {
+	int64 receivedBytes = 0;
+	int sessions = 0;
+	int requestsInFlight = 0;
+	int64 bytesInFlight = 0;
+	int queuedTasks = 0;
+	int premiumDelays = 0;
+};
+
 class DownloadMtprotoTask;
 
 class DownloadManagerMtproto final : public base::has_weak_ptr {
@@ -58,8 +73,13 @@ public:
 	[[nodiscard]] int chooseSessionIndex(MTP::DcId dcId) const;
 
 	void notifyNonPremiumDelay(DocumentId id) {
+		++_premiumDelays;
 		_nonPremiumDelays.fire_copy(id);
 	}
+	void addReceivedBytes(int64 bytes) {
+		_receivedBytes += bytes;
+	}
+	[[nodiscard]] DownloadStats stats() const;
 	[[nodiscard]] rpl::producer<DocumentId> nonPremiumDelays() const {
 		return _nonPremiumDelays.events();
 	}
@@ -71,6 +91,9 @@ private:
 		void remove(not_null<Task*> task);
 		void resetGeneration();
 		[[nodiscard]] bool empty() const;
+		[[nodiscard]] int size() const {
+			return int(_tasks.size());
+		}
 		[[nodiscard]] Task *nextTask(bool onlyHighestPriority) const;
 		void removeSession(int index);
 
@@ -125,6 +148,8 @@ private:
 	base::Timer _killSessionsTimer;
 
 	base::flat_map<MTP::DcId, Queue> _queues;
+	int64 _receivedBytes = 0;
+	int _premiumDelays = 0;
 	rpl::lifetime _lifetime;
 
 };
@@ -172,6 +197,14 @@ protected:
 	void addToQueue(int priority = 0);
 	void removeFromQueue();
 
+	void allowBigParts() {
+		_bigParts = true;
+	}
+	[[nodiscard]] int requestLimitForOffset(int64 offset) const;
+	[[nodiscard]] virtual int64 knownFileSize() const {
+		return 0;
+	}
+
 	[[nodiscard]] ApiWrap &api() const {
 		return _owner->api();
 	}
@@ -182,6 +215,7 @@ private:
 		mutable int sessionIndex = 0;
 		int requestedInSession = 0;
 		crl::time sent = 0;
+		int limit = kDownloadPartSize;
 
 		inline bool operator<(const RequestData &other) const {
 			return offset < other.offset;
@@ -282,6 +316,7 @@ private:
 	mtpRequestId _cdnHashesRequestId = 0;
 
 	rpl::lifetime _nonPremiumLimitSubscription;
+	bool _bigParts = false;
 
 };
 
