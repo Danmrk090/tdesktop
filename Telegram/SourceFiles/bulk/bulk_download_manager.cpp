@@ -1967,7 +1967,7 @@ void Manager::restore() {
 			return job->autoSave && job->peerId == rule.peerId;
 		});
 		if (!exists) {
-			autoSaveJob(rule);
+			[[maybe_unused]] const auto job = autoSaveJob(rule);
 		}
 	}
 }

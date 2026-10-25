@@ -51,6 +51,8 @@ namespace {
 constexpr auto kCheckInterval = crl::time(2000);
 constexpr auto kNothingTimeout = crl::time(120000);
 constexpr auto kNextGroupDelay = crl::time(1000);
+constexpr auto kPeerWaitDelay = crl::time(5000);
+constexpr auto kMaxPeerWaits = 12;
 
 struct UploadState {
 	PeerId peerId = 0;
@@ -165,6 +167,7 @@ private:
 	int _groupCount = 0;
 	int _expected = 0;
 	int _seen = 0;
+	int _peerWaits = 0;
 	bool _waiting = false;
 	rpl::lifetime _lifetime;
 
@@ -255,7 +258,11 @@ void Uploader::sendNext() {
 		return;
 	}
 	const auto peer = _session->data().peerLoaded(_state.peerId);
-	if (!peer || !CanUploadTo(peer)) {
+	if (!peer && ++_peerWaits <= kMaxPeerWaits) {
+		// The chats list may still be loading after a restart.
+		base::call_delayed(kPeerWaitDelay, this, [=] { sendNext(); });
+		return;
+	} else if (!peer || !CanUploadTo(peer)) {
 		if (const auto window = _session->tryResolveWindow()) {
 			window->showToast(tr::lng_bulk_upload_cant(tr::now));
 		}
