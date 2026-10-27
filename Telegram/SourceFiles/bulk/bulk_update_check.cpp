@@ -20,6 +20,11 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtNetwork/QNetworkReply>
 #include <QtNetwork/QNetworkRequest>
 
+#ifdef Q_OS_WIN
+// Qt Network looks up DNS records with dnsapi.dll.
+#pragma comment(lib, "dnsapi.lib")
+#endif // Q_OS_WIN
+
 #define BULK_STRINGIFY_IMPL(x) #x
 #define BULK_STRINGIFY(x) BULK_STRINGIFY_IMPL(x)
 
